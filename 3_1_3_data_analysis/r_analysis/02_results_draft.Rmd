@@ -1,0 +1,3676 @@
+---
+title: "The BIG measure - Results"
+# author: "Daniel J Wilson"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::html_document2
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library("PerformanceAnalytics")
+
+# Import participants from cohort 1 and 2
+cohort1 = read.csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_3_experience_sampling/3_3_1_raw_data/run_1/run1_subjects.csv')
+cohort2 = read.csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_3_experience_sampling/3_3_1_raw_data/run_2/run2_subjects.csv')
+
+# Import preprocessed dataframe
+df = readRDS('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_1_gap_measure/3_1_3_data_analysis/r_analysis/data/df.RDS')
+```
+
+# 1 Demographics
+
+```{r demographics, echo=FALSE}
+c1onB = length(df[df$cohort =='cohort 1' & df$onOff == 'onBoarding',]$age)
+c1offB = length(df[df$cohort =='cohort 1' & df$onOff == 'offBoarding',]$age)
+
+c2onB = length(df[df$cohort =='cohort 2' & df$onOff == 'onBoarding',]$age)
+c2offB = length(df[df$cohort =='cohort 2' & df$onOff == 'offBoarding',]$age)
+
+onB_num = length(df[df$onOff == 'onBoarding',]$age)
+
+onB_m = table(df[df$onOff == 'onBoarding',]$gender)[1]
+onB_f = table(df[df$onOff == 'onBoarding',]$gender)[2]
+onB_o = table(df[df$onOff == 'onBoarding',]$gender)[3]
+
+age_m = round(mean(as.numeric(df$age), na.rm = T), 2)
+age_sd = round(sd(as.numeric(df$age), na.rm = T), 2)
+
+# ethnicity
+white = round(100 * table(df[df$onOff == 'onBoarding',]$ethnicity)[1]/onB_num, 2)
+black = round(100 * table(df[df$onOff == 'onBoarding',]$ethnicity)[2]/onB_num, 2)
+native = round(100 * table(df[df$onOff == 'onBoarding',]$ethnicity)[3]/onB_num, 2)
+asian = round(100 * table(df[df$onOff == 'onBoarding',]$ethnicity)[4]/onB_num, 2)
+other = round(100 * table(df[df$onOff == 'onBoarding',]$ethnicity)[5]/onB_num, 2)
+```
+
+We ran 2 cohorts of the study during the fall semester of 2022 and the winter semester of 2023. 
+
+For Cohort 1 we had `r c1onB` subjects complete the intention-behavior gap measure at onboarding and `r c1offB` at offboarding. 
+
+For Cohort 2 we had `r c2onB` subjects complete the intention-behavior gap measure at onboarding and `r c2offB` again at offboarding.
+
+In total we had `r onB_num` subjects complete the intention-behavior gap measure at onboarding (`r onB_m` males, `r onB_f` females, `r onB_o` other) with a mean age of `r age_m` (SD = `r age_sd`). 
+
+The majority of particpants were Asian (`r asian`%), followed by Other (`r other`%), Black or African American (`r black`%), White (`r white`%) and Indigenous or Native (`r native`%). 
+
+
+```{r description, echo=FALSE}
+# How many goals do people have?
+x = data.frame(table(df[df$onOff=='onBoarding',]$gender))
+names(x) = c('Gender', 'Count')
+x$Gender = c("Male", "Female", "Other")
+
+ggplot(x, aes(x = Gender, y = Count, fill= Gender)) +
+  geom_bar(stat = "identity") +
+  labs(title="Gender")+
+  geom_text(aes(label = Count), vjust = -0.5) +
+  theme_void()
+```
+
+# 2 Description
+What does the measure tell us about the gap? To start we first look at an overview of the gap magnitude in our sample, with a mean of 45.9 (SD = 15.8).
+
+## 2.1 Gap distribution in population
+```{r gap distribution, echo=FALSE}
+hist(df$domain_gap, col = 'skyblue3', breaks = 20)
+describe(df$domain_gap)
+```
+## 2.6 Goal Domain Count
+The number of domains for which people had goals was also normally distributed, with a mean of 18.3, (SD = 7.5).
+
+```{r goal domains count, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df, contains('ib_domain_success'))
+
+# Calculate the number of non-NA domain goal values for the domains
+non_na_counts <- data.frame(counts = rowSums(!is.na(x)))
+
+non_na_counts = data.frame(counts = non_na_counts[non_na_counts>0,])
+
+ggplot(non_na_counts, aes(x=counts)) + 
+  geom_histogram(binwidth=1) +
+  theme_minimal()
+
+ggplot(non_na_counts, aes(x = "counts", y = counts)) +
+  geom_violin(alpha = 0.5, draw_quantiles = c(0.25, 0.5, 0.75)) +
+  geom_point(position = position_jitter(seed = 1, width = 0.2)) +
+  theme(legend.position = "none") +
+  theme_minimal()
+  
+describe(non_na_counts$counts)
+```
+We also captured data on a number of dimensions of each goal, including importance, time (i.e. how much time accomplishing the goal takes), and effort.
+
+We plot those distributions below:
+
+```{r intention importance distribution, echo=FALSE, warning=FALSE}
+
+data = df %>% 
+  select(starts_with('ib_domain_import_')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Convert the dataframe into a single vector
+data <- unlist(data)
+
+# Remove NA values
+data <- na.omit(data)
+
+
+# Convert vector to data frame and count occurrences of each value
+data <- data.frame(value = data) %>%
+  count(value)
+
+# Create the bar plot
+ggplot(data, aes(x = value, y = n)) +
+  geom_bar(stat = "identity", fill = 'lightblue') +
+  labs(x = "Value", y = "Count", title = "Importance") +
+  theme_minimal()
+```
+
+```{r intention time distribution, echo=FALSE, warning=FALSE}
+
+data = df %>%
+  select(starts_with('ib_domain_time_')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Convert the dataframe into a single vector
+data <- unlist(data)
+
+# Remove NA values
+data <- na.omit(data)
+
+
+# Convert vector to data frame and count occurrences of each value
+data <- data.frame(value = data) %>%
+  count(value)
+
+# Create the bar plot
+ggplot(data, aes(x = value, y = n)) +
+  geom_bar(stat = "identity", fill='lightblue') +
+  labs(x = "Value", y = "Count", title = "Time") +
+  theme_minimal()
+```
+```{r intention effort distribution, echo=FALSE, warning=FALSE}
+
+data = df %>% 
+  select(starts_with('ib_domain_effort_')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Convert the dataframe into a single vector
+data <- unlist(data)
+
+# Remove NA values
+data <- na.omit(data)
+
+
+# Convert vector to data frame and count occurrences of each value
+data <- data.frame(value = data) %>%
+  count(value)
+
+# Create the bar plot
+ggplot(data, aes(x = value, y = n)) +
+  geom_bar(stat = "identity", fill='lightblue') +
+  labs(x = "Value", y = "Count", title = "Effort") +
+  theme_minimal()
+```
+
+## 2.2 Gap Satisfaction
+How did people feel about the gap compared to their gap magnitude?
+
+We found that as as.
+
+```{r gap feelings vs. magnitude, warning=FALSE, message=FALSE, echo=FALSE}
+df$meta_gap_feelings_1 = as.numeric(df$meta_gap_feelings_1)
+
+# calculate correlation
+cor_result <- cor.test(df$domain_gap, df$meta_gap_feelings_1, use="pairwise.complete.obs")
+
+# plot
+ggplot(df, aes(x = domain_gap, y = meta_gap_feelings_1)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  #geom_label(aes(x = 82, y = 5.5, label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 6), scientific = TRUE))), color = "white", fill = "orangered", fontface= 'bold', size=6) +
+  geom_label(aes(x = 82, y = 5.5, label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = TRUE))), color = "black") +
+  xlab("Gap Magnitude") +
+  ylab("Gap Satisfaction") +
+  theme_minimal()
+
+```
+
+The correlation between positive feelings about ones global intention-behavior gap and the gap magnitude was `r round(cor_result$estimate, 2)`.
+
+## 2.4 Goal Frequencies
+The frequency with which domains were selected as "goal" domains varied greatly across goal categories, with work/school being chosen 89% of the time but video games just 20%.
+
+```{r goal domains frequency, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df, contains('ib_domain_success'))
+# remove rows with ONLY NA values
+x <- x[apply(x, 1, function(row) any(!is.na(row))), ]
+
+n = nrow(x)
+
+# Count the non NA values in each column
+non_na_counts <- colSums(!is.na(x))
+dom_count <- data.frame(Domain = names(non_na_counts), Frequency = (non_na_counts/n)*100)
+# Remove "ib_domain_success_" from the "Name" column
+dom_count$Domain <- gsub("ib_domain_success_", "", dom_count$Domain)
+# sort
+dom_count = dom_count[order(dom_count$Frequency),]
+dom_count$Domain <- factor(dom_count$Domain, levels = dom_count$Domain)
+
+ggplot(dom_count, aes(x = Domain, y = Frequency, fill = Frequency)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_gradient(low = "blue2", high = "green2", limits = c(0, 100)) +
+  xlab("Category") +
+  ylab("Frequency (%)") +
+  theme_minimal()
+```
+
+
+
+## 2.5 Goal Importance
+How important on average did participants judge the domains to be?
+```{r goal domains importance, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df, contains('ib_domain_import'))
+x <- x %>% mutate_all(as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+
+means <- data.frame(Domain = names(means), Importance = means)
+# Remove "ib_domain_success_" from the "Name" column
+means$Domain <- gsub("ib_domain_import_", "", means$Domain)
+# sort
+means = means[order(means$Importance),]
+means$Domain <- factor(means$Domain, levels = means$Domain)
+
+ggplot(means, aes(x = Domain, y = Importance, fill = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_gradient(low = "blue2", high = "green2", limits = c(1, 7)) +
+  xlab("Category") +
+  ylab("Value") +
+  theme_minimal()
+```
+
+## 2.3 Gaps by Domain
+How big on average were participants gaps in each domain (100 means a total gap, i.e. not accomplishing a goal at all)?
+
+```{r goal domains gap, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df, contains('ib_domain_success'))
+
+x =x[apply(x, 1, function(x) !all(is.na(x))), ]
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+means = 100 - means
+means <- data.frame(Domain = names(means), Gap = means)
+# Remove "ib_domain_success_" from the "Name" column
+means$Domain <- gsub("ib_domain_success_", "", means$Domain)
+# sort
+means = means[order(means$Gap),]
+means$Domain <- factor(means$Domain, levels = means$Domain)
+
+ggplot(means, aes(x = Domain, y = Gap, fill = Gap)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_fill_gradient(low = "green2", high = "red2", limits = c(0, 100)) +
+  xlab("Category") +
+  ylab("Value") +
+  theme_minimal()
+```
+## 2.3 Gaps by Gender
+
+```{r goal gender gap, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df[df$onOff == 'onBoarding',], contains('ib_domain_success'), gender)
+x =x[apply(x, 1, function(x) !all(is.na(x))),]
+
+
+# Calculate the mean of columns omitting NA values
+means <- rowMeans(x[, !(names(x) %in% c("gender", "onOff"))], na.rm = TRUE)
+
+# Calculate gap instead of success
+means = 100 - means
+means <- data.frame(Gap = means, Gender = x$gender)
+
+# run t test
+males = means[means$Gender==1,]$Gap
+females = means[means$Gender==2,]$Gap
+result = t.test(females, males)
+
+# calculate means + sd
+mean_f = mean(females, na.rm = T)
+mean_m = mean(males, na.rm = T)
+sd_f = sd(females, na.rm = T)
+sd_m = sd(males, na.rm = T)
+# calculate effect size
+# cd = cohen.d(x, 'Group')
+```
+We found a significant difference in the magnitude of the reported intention-behavior gap for females (M = `r round(mean_f, 2)`%, SD = `r sd_f`) and males  `r round(mean_m, 1)`% (`r sd_m`). A Welch two-samples t-test showed that the difference was statistically significant, t(`r round(result$parameter, 2)`) = `r round(result$statistic, 2)`, p = `r round(result$p.value, 3)`, d = `r round(abs(cd$cohen.d[2]), 2)`.
+
+
+
+```{r plot goal gender gap, warning=FALSE, message=FALSE, echo=FALSE}
+# create dataframe
+x <- data.frame(
+  Value = c(females, males),
+  Group = factor(rep(1:2, c(length(females), length(males))), labels=c("Females", "Males"))
+)
+
+# plot
+ggplot(x, aes(x=Group, y=Value, fill=Group)) +
+  geom_violin(alpha = 0.5, show.legend = FALSE) +
+  geom_boxplot(width = 0.1, fill = "white", alpha = 0.9, outlier.shape = NA) +
+  geom_jitter(width=0.2, aes(color=Group), show.legend = FALSE) + 
+  labs(title="Gender gap difference", y="Gap") +
+  geom_label(aes(x = 1.5, y = 80, label = paste("t =", round(result$statistic, 2), "\np-value =", round(result$p.value, 3))), color = "black", fill = "white") +
+  theme(legend.position = "none") +
+  theme_minimal()
+```
+
+# 3 Reliability
+Reliability in the context of a psychological measure refers to the consistency, stability, and repeatability of the scores produced by the measure. When an instrument is reliable, it yields consistent results under consistent conditions. This doesn't necessarily mean the instrument is measuring what it's supposed to measure (that's validity), but that it measures consistently (Nunnally, J. C., 1976).
+
+
+## 3.1 Cronbachs Alpha
+Cronbach's Alpha (α) is a statistic commonly used to measure the internal consistency of a scale or test, often in the fields of psychology, education, and related disciplines. In essence, it assesses how well a set of items (questions, tasks, etc.) measures a single construct. The value of α ranges between 0 and 1, with higher values indicating greater internal consistency (Tavakol, M. & Dennick, R., 2011). 
+
+Mathematically, Cronbach's Alpha is given by:
+
+$$\alpha = \frac{k}{k-1} \left(1 - \frac{\sum_{i=1}^{k} \sigma^2_{Yi}}{\sigma^2_X} \right)$$
+Where $k$ represents the number of items, $\sigma^2_{Yi}$ is the variance of item $i$, and $\sigma^2_X$ is the variance of the observed total scores.
+
+```{r chronbachs alpha, echo=FALSE, warning=FALSE, message=FALSE}
+# note that this gives numerous warning messages...
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows that are all NA
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+c_alpha = psych::alpha(chron, na.rm = T)
+
+missingness = sum(colSums(is.na(chron))) / (dim(chron)[1] * dim(chron)[2])
+
+## Simulate data
+
+```
+
+We calculated Cronbach's alpha using dataframe that included many `NA` values, given that participants generally did not have goals for all domains. In total missing values were present in `r round(missingness, 3)*100`% of the dataframe's cells. 
+
+Even with a sparse matrix the `psych` library can still calculate a chronbach's alpha by removing missing values and calculating pairwise correlations.
+
+Using this library internal consistency as measured by Chronbach's Alpha (standardized) was `r round(c_alpha$total$std.alpha, 2)`.
+
+While this supports the idea that we have an internally consistent unidiimensionsal measure, we should also be aware that the value is inflated due to the high number of items (in our case 34) in the measure (Taber, K. S., 2018). One interpretation of a very high alpha value is that the items might be redundant. In our case, given the nature of our items, this is not a major concern as we have specifically chosen distinct domains. For example, exercise and diet may be closely related for many people, but they are not the same activity.
+
+## 3.2 Inter-Item Correlation
+
+Inter-item correlation refers to the pairwise correlations between items on a measure as a means of evaluating the consistency of the measure. If items on a scale are supposed to tap into the same underlying construct, they should correlate positively with each other (Nunnally, J. C., & Bernstein, I. H., 1994).
+
+It is calculated by computing a correlation matrix for all items and then averaging the correlations of the matrix (excluding the diagonal which will have a perfect correlation of 1 with itself). In other words Given a correlation matrix $C$ where $c_{ij}$ represents the correlation between item $i$ and item $j$, and $n$ is the number of items:
+
+$$\text{Average Inter-item Correlation} = \frac{\sum_{i=1}^{n}\sum_{j=1, j\neq i}^{n} c_{ij}}{n(n-1)}$$
+
+```{r inter-item correlation, echo=FALSE, warning=FALSE, message=FALSE}
+
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows with all na
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+# create cor matrix
+cor_matrix = cor(chron, use = 'pairwise.complete.obs')
+
+# Set diagonal values to NA
+diag(cor_matrix) <- NA
+
+# Find the row and column index of the maximum value
+max_location <- which(cor_matrix == max(cor_matrix, na.rm = TRUE), arr.ind = TRUE)
+row_name <- rownames(cor_matrix)[max_location[1, "row"]]
+col_name <- colnames(cor_matrix)[max_location[1, "col"]]
+max_val = round(max(cor_matrix, na.rm = TRUE), 2)
+# calculate pairwise correlation (note that this is hard coded - make sure it matches the row and col above)
+cor_result <- cor.test(df$ib_domain_success_Alcohol_drug, df$`ib_domain_success_Video games`, use="pairwise.complete.obs")
+
+# # Negative Correlations
+# cor.test(df$`ib_domain_success_Video games`, df$ib_domain_success_Partner, use = 'pairwise.complete.obs')
+# cor.test(df$`ib_domain_success_Video games`, df$`ib_domain_success_Community involvement`, use = 'pairwise.complete.obs')
+
+# Calculate avg. correlation of each domain with the other domains
+inter_item = cor_matrix %>% colMeans(na.rm = TRUE)
+mean_inter_item = round(mean(inter_item), 2)
+
+# Plot
+inter_item <- data.frame(Domain = names(inter_item), Correlation = inter_item)
+# Remove "ib_domain_success_" from the "Name" column
+inter_item$Domain <- gsub("ib_domain_success_", "", inter_item$Domain)
+# sort
+inter_item = inter_item[order(inter_item$Correlation),]
+inter_item$Domain <- factor(inter_item$Domain, levels = inter_item$Domain)
+
+ggplot(inter_item, aes(x = Domain, y = Correlation)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Category") +
+  ylab("Value") +
+  theme_minimal()
+
+```
+
+The mean inter-item correlation, is `r mean_inter_item`, which is within the ideal range of .20 to .40 which indicates that items are neither so different from one another that they may not be touching on the same measurement domain, nor so homogeneous that they are redundant (Piedmont, 2014).
+
+The highest single bivariate correlation is between `r row_name` and `r col_name` of r(`r cor_result$parameter`) = `r round(cor_result$estimate, 2)`, p < 0.001. This underscores why for this measure a strong correlation does not suggest that items are equivalent.
+
+There are also two negative correlations between items - both involving video gaming intentions. The first is with intentions toward the subject's relationship with a partner ($r(23) = -0.2, p = .34$), and the second with community involvement goals ($r(30) = -.02, p = .93$), however neither was significant.
+
+
+## 3.3 Item-Total Correlation
+Item-total correlation, often referred to as the corrected item-total correlation, represents the correlation between a particular item and the sum of all the other items in a scale or test. The "corrected" aspect means that the total doesn't include the item itself. It is commonly used in psychometric analyses to gauge how well an item aligns with the overall scale or test.
+
+We calculated corrected item-total correlations by testing how the score of an individual item $X_i$ correlates with the total score of all items, excluding the score of item $X_i$. It provides a measure of how much the item relates to the rest of the test when the influence of the item itself is removed from the total score. The full formula is:
+
+$$r_{i} = \frac{\sum (X_i - \bar{X_i})(T' - \bar{T'})}{\sqrt{\sum (X_i - \bar{X_i})^2 \sum (T' - \bar{T'})^2}}$$
+Where $\bar{X_i}$ is the mean score of item $X_i$ and $\bar{T'}$ is the mean of the corrected scores $T'$ ($T' = T - X_i$). 
+
+```{r item-total correlation, echo=FALSE, warning=FALSE, message=FALSE}
+
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows with all na
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+item_total_cors = rep(NaN, dim(chron)[2])
+
+# loop through all items
+for (i in 1:ncol(chron)){
+  # calculate total score
+  totals = rowSums(chron[, -i], na.rm = T)
+  item_total_cors[i] = abs(cor(chron[,i], totals, use = 'pairwise.complete.obs')[1])
+}
+
+item_total_cor = round(mean(item_total_cors), 2)
+
+# Plot
+item_total <- data.frame(Domain = colnames(chron), Correlation = item_total_cors)
+# Remove "ib_domain_success_" from the "Name" column
+item_total$Domain <- gsub("ib_domain_success_", "", item_total$Domain)
+# sort
+item_total = item_total[order(item_total$Correlation),]
+item_total$Domain <- factor(item_total$Domain, levels = item_total$Domain)
+
+ggplot(item_total, aes(x = Domain, y = Correlation)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Category") +
+  ylab("Value") +
+  theme_minimal()
+```
+
+The average corrected item-total correlation was `r item_total_cor`. This represents 13 items that had item-total correlations ≥.4, which indicates excellent discrimination, 15 items that were between .3 and .4 which indicates good discrimination, four items that were between .2 and .3 which indicates marginal discrimination (though all were above .29) and two items ≤0.19 which means poor discrimination (Qin, 2006, Streiner & Norman, 2008).
+
+
+## 3.4 Test-Retest Reliability
+Test-retest reliability refers to the extent to which scores on a particular measure are stable over a specified period. In other words, if the same participants complete the same measure on two different occasions (with no intervention or change occurring between the two test times), their scores should be similar if the measure is reliable. This is particularly true for constructs that are expected to be stable over time, such as intelligence or personality. However, when measuring constructs that might be expected to change over fairly short time periods (e.g. mood), the test-retest method can be less appropriate as a measure of reliability (Nunnally, J. C., & Bernstein, I. H., 1994, Streiner, D. L., & Norman, G. R., 2008).
+
+We use the Intraclass Correlation Coefficient (ICC) to test-retest reliability. This has been found to be superior than simply calculating the Pearson correlation between scores at two different times as it assesses not just the correlation, but also the agreement between measurements. There are a number of versions of the ICC, we use ICC(3,1) which is used for single measures and based on a two-way mixed-effects model. It is calculated by:
+
+$$ICC(3,1) = \frac{\sigma^2_{\text{subject}}}{\sigma^2_{\text{subject}} + \sigma^2_{\text{error}}}$$
+
+Where $\sigma^2_{\text{subject}$ is the between-subjects variance, and $\sigma^2_{\text{error}}$ is the within-subjects variance (McGraw, K. O., & Wong, S. P., 1996).
+
+### 3.4.1 Gap Measure
+```{r test-retest, echo=FALSE, message=FALSE}
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('domain_gap', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('domain_gap', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('domain_gap', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('domain_gap', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all_gap = bind_rows(test_retest1, test_retest2)
+test_retest_ibgap = test_retest_all_gap
+
+# calculate ICC
+ICC_gap = ICC(test_retest_all_gap[,c('gap_t1', 'gap_t2')], missing=TRUE, alpha = .05, lmer = TRUE, check.keys = FALSE)
+
+# calculate time gaps
+week_dif = (as.Date(test_retest_all_gap$date_t2) - as.Date(test_retest_all_gap$date_t1))/7
+week_dif_mean = describe(as.numeric(week_dif))$mean
+week_dif_sd = describe(as.numeric(week_dif))$sd
+week_dif_n = describe(as.numeric(week_dif))$n
+
+# Plot
+ggplot(data=test_retest_all_gap, aes(x=gap_t1, y=gap_t2))+
+  geom_point()+
+  geom_abline(slope=1, intercept = 0) +
+  theme_minimal()
+```
+
+We had `r week_dif_n` subjects complete the measure twice - once near the beginning of semester, and a second time about 3 months later at the end of the semester ($weeks = `r round(week_dif_mean, 2)`$, $sd = `r round(week_dif_sd, 2)`$).
+
+We computed the Intraclass Correlation Coefficient (ICC) to assess the test-retest reliability of the Intention Behavior Gap measure. Using a two-way mixed-effects model, single-rating, absolute-agreement form, the ICC value was found to be ICC(3,1) = `r round(ICC_gap$results$ICC[1], 2)`, 95% CI [`r round(ICC_gap$results$`lower bound`[1], 2)`, `r round(ICC_gap$results$`upper bound`[1], 2)`], indicating moderate reliability (Koo and Li 2016). For reference the Short Grit Scale had a 1 year test-retest stability of $r = .68$ and conscientiousness scores based on the NEO Five-Factor Inventory (Costa & McCrae, 1992) correlated at $r = .59$ over 4 years in a test by Robins, Fraley, Roberts and Trzesniewski (2001). Notably, within our own data we found that most measures had a higher ICC value than our gap measure at time 1 and time 2.
+
+We believe this relatively low correlation for the gap measure could be partially due to influence on reponses from current state levels of the gap at the time of completing the measure, which are expected to fluctuate. Additionally, we are studying a population (almost all first year undergraduate students) that we would expect to have higher state-level variance in their intention behavior gap due to the unique moment in their lives starting a university education represents. As with any major life change, novel situations are ripe ground for intention-behavior gaps as we are attempting to set goals we have not previously attempted. One might expect someone in their 30s or 40s with a regular job to have a more stable test-retest value for this measure.
+
+
+```{r test-retest-other measures, echo=FALSE, message=FALSE}
+#--------------#
+# Self Control #
+#--------------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('brief_self_control_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('brief_self_control_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('brief_self_control_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('brief_self_control_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+# calculate ICC
+ICC1_self_control = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+#-------------------#
+# Conscientiousness #
+#-------------------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('con_hex_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('con_hex_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('con_hex_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('con_hex_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+# calculate ICC
+ICC1_conscientiousness = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+#------#
+# Grit #
+#------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('grit_scale_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('grit_scale_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('grit_scale_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('grit_scale_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+ICC1_grit = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+#------#
+# DASS #
+#------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('DASS_overall', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('DASS_overall', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('DASS_overall', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('DASS_overall', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+# calculate ICC
+ICC1_DASS = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+#------------#
+# Sub. Happy #
+#------------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('sub_happy_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('sub_happy_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('sub_happy_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('sub_happy_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+# calculate ICC
+ICC1_sub_happy = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+#-----------------#
+# Quality of Life #
+#-----------------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('qol_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('qol_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('qol_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('qol_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+# calculate ICC
+ICC1_qol = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+#-------------#
+# Flourishing #
+#-------------#
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('flourishing_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('flourishing_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest1 <- test_retest[complete.cases(test_retest), ]
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('flourishing_score', 'consent_sonaID', 'EndDate')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('flourishing_score', 'consent_sonaID', 'EndDate')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows missing values
+test_retest2 <- test_retest[complete.cases(test_retest), ]
+
+# combine
+test_retest_all = bind_rows(test_retest1, test_retest2)
+
+# calculate ICC
+ICC1_flourish = ICC(test_retest_all[,c('gap_t1', 'gap_t2')], alpha = 0.5, lmer = F)
+
+
+
+xdata <- data.frame(
+  Measure = c("Intention-Behavior Gap", "Self-Control", "Conscientiousness", "Grit", "DASS", "Subjective Happiness", "Quality of Life", "Flourishing"),
+  ICC = c(round(ICC_gap$results$ICC[1], 2), 
+          round(ICC1_self_control$results$ICC[1], 2),
+          round(ICC1_conscientiousness$results$ICC[1], 2),
+          round(ICC1_grit$results$ICC[1], 2),
+          round(ICC1_DASS$results$ICC[1], 2),
+          round(ICC1_sub_happy$results$ICC[1], 2),
+          round(ICC1_qol$results$ICC[1], 2),
+          round(ICC1_flourish$results$ICC[1], 2)),
+  LowerBound = c(round(ICC_gap$results$`lower bound`[1], 2),
+                 round(ICC1_self_control$results$`lower bound`[1], 2),
+                 round(ICC1_conscientiousness$results$`lower bound`[1], 2),
+                 round(ICC1_grit$results$`lower bound`[1], 2),
+                 round(ICC1_DASS$results$`lower bound`[1], 2),
+                 round(ICC1_sub_happy$results$`lower bound`[1], 2),
+                 round(ICC1_qol$results$`lower bound`[1], 2),
+                 round(ICC1_flourish$results$`lower bound`[1], 2)),
+  UpperBound = c(round(ICC_gap$results$`upper bound`[1], 2),
+                 round(ICC1_self_control$results$`upper bound`[1], 2),
+                 round(ICC1_conscientiousness$results$`upper bound`[1], 2),
+                 round(ICC1_grit$results$`upper bound`[1], 2),
+                 round(ICC1_DASS$results$`upper bound`[1], 2),
+                 round(ICC1_sub_happy$results$`upper bound`[1], 2),
+                 round(ICC1_qol$results$`upper bound`[1], 2),
+                 round(ICC1_flourish$results$`upper bound`[1], 2))
+)
+
+kable(xdata, format = "html", table.attr = "class=nofluid") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+### 3.4.2 State Level Influence
+We decided to test the potential influence of state-level gaps on the trait level measure in two different ways. First, we looked to see if there might be a simple regression to the mean in gap scores that were particularly high or low. Second, we tested the possible influence of state-level gaps on our measure by looking at the day-to-day gap self-reports we collected over the course of the study.
+
+#### 3.4.2.1 Regression to the mean
+If state-levels of the intention-behavior gap follow a random normal distribution within individuals, we would trait-level self reports of the intention-behavior gap to be most impacted for those people at the extremes of their state-level gap. For example, if someone was in the top quintile, in terms of their state-level intention-behavior gap, while reporting the level of their trait-level gap, we propose that this would boost their reported value. However, if we sampled this same person months later we could assume there to be an 80% chance that their state-level gap at this second time point would not be in the top quintile. This therefore means that even if their trait-level gap was unchanged at the two points in time there would be an 80% chance that they would report the gap as lower at the second time point, as the state-level influence regresses to the mean.
+
+```{r test-retest-regression-to-mean, echo=FALSE, message=FALSE}
+
+# Note that this is actually looking at the top/bottom 20%, not 10...
+filter_top10 = test_retest_ibgap %>%
+  filter(gap_t1 > quantile(gap_t1, 0.8))
+
+top10_t1_mean = round(mean(filter_top10$gap_t1, na.rm=T), 2)
+top10_t1_sd = round(sd(filter_top10$gap_t1, na.rm=T), 2)
+top10_t2_mean = round(mean(filter_top10$gap_t2, na.rm=T), 2)
+top10_t2_sd = round(sd(filter_top10$gap_t2, na.rm=T), 2)
+top10_ttest = t.test(filter_top10$gap_t1, filter_top10$gap_t2, alternative = "greater")
+ttest_top20_p = round(top10_ttest$p.value, 3)
+
+filter_bottom10 = test_retest_ibgap %>%
+  filter(gap_t1 < quantile(gap_t1, 0.2))
+
+bottom10_t1_mean = round(mean(filter_bottom10$gap_t1, na.rm=T), 2)
+bottom10_t1_sd = round(sd(filter_bottom10$gap_t1, na.rm=T), 2)
+bottom10_t2_mean = round(mean(filter_bottom10$gap_t2, na.rm=T), 2)
+bottom10_t2_sd = round(sd(filter_bottom10$gap_t2, na.rm=T), 2)
+bottom10_ttest = t.test(filter_bottom10$gap_t1, filter_bottom10$gap_t2, alternative = "less", na.rm=T)
+ttest_bottom20_p = round(bottom10_ttest$p.value, 3)
+```
+We did find some evidence that this was happening. Taking the highest 20% of gaps from t1 the average was a `r top10_t1_mean`% gap (SD = `r top10_t1_sd`). At t2 this number had decreased on average to `r top10_t2_mean`% (SD = `r top10_t2_sd`). The same pattern, but in the opposite direction, was found when looking at the lowest 20% of gaps, where the t1 average was `r bottom10_t1_mean`% (SD = `r bottom10_t1_sd`) and the t2 average `r bottom10_t2_mean` (SD = `r bottom10_t2_sd`). The difference in means was significant in both cases, based on a one-tailed Welch two sample t-test (p = `r ttest_top20_p` in the first case and p = `r ttest_bottom20_p`).
+
+```{r test-retest-regression-to-mean-plot, echo=FALSE, message=FALSE}
+
+df_plot <- tibble(
+  Time = c("Time 1", "Time 1", "Time 2", "Time 2", "Time 1", "Time 2"),
+  Category = c("Top 20%", "Bottom 20%", "Top 20%", "Bottom 20%", "Mean", "Mean"),
+  Value = c(top10_t1_mean, bottom10_t1_mean, top10_t2_mean, bottom10_t2_mean, mean(test_retest_ibgap$gap_t1), mean(test_retest_ibgap$gap_t2)),
+  SE = c( top10_t1_sd/sqrt(length(filter_top10)),
+          top10_t2_sd/sqrt(length(filter_top10)),
+          bottom10_t1_sd/sqrt(length(filter_bottom10)),
+          bottom10_t2_sd/sqrt(length(filter_bottom10)),
+          sd(test_retest_ibgap$gap_t1)/sqrt(length(test_retest_ibgap)),
+          sd(test_retest_ibgap$gap_t2)/sqrt(length(test_retest_ibgap))
+          )
+)
+
+
+ggplot(df_plot, aes(x = Time, y = Value, color = Category, group = Category)) +
+  geom_point(size = 3) +
+  geom_line() +
+  geom_errorbar(aes(ymin = Value - SE, ymax = Value + SE), width = 0.2) +
+  labs(y = 'Intention-Behavior Gap') +
+  theme_minimal()
+```
+
+#### 3.4.2.2 Recency bias
+In addition to the two trait-level measurements we collect from study participants, we also have a measure of their daily gap, collected daily, over a 12-week period. This gives us some purchase to examine the idea that the Intention-Behavior gap trait-level measure reporting may be prone to influence from current state-level fluctuations. Given that most subjects completed the trait-level measure at both onboarding and offboarding we had two time points where we could compare the similarity between state-level and trait-level reporting. 
+
+To test our hypothesis we took the completion date of each subject's trait-level measure and compared it to the same day and previous six days of their state-level gap. Our expectation was that we would find a higher correlation between the trait-level measure and the temporally concurrent state-level seven-day average, than between the trait-level measure and a more temporally distant state-level seven-day average (i.e., $r_{matchedTime} > r_{unmatchedTime}$).
+
+```{r test-retest-state-effects, echo=FALSE, message=FALSE}
+library(lubridate)
+
+# load daily data
+daily_gaps_1 = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_3_experience_sampling/3_3_2_processed_data/run_1/run1_selfReport.csv')
+daily_gaps_1 = daily_gaps_1[c('ParticipantIdentifier', 'DAILY_past24_gap', 'DAILY_goal1_report', 'DAILY_goal2_report', 'trial_date')]
+
+daily_gaps_2 = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_3_experience_sampling/3_3_2_processed_data/run_2/run2_selfReport.csv')
+daily_gaps_2 = daily_gaps_2[c('ParticipantIdentifier', 'DAILY_past24_gap', 'DAILY_goal1_report', 'DAILY_goal2_report', 'trial_date')]
+
+# bind dfs
+daily_gaps = bind_rows(daily_gaps_1, daily_gaps_2)
+
+# Convert date columns in to date type
+test_retest_all_gap$date_t1 <- ymd_hms(test_retest_all_gap$date_t1)
+test_retest_all_gap$date_t2 <- ymd_hms(test_retest_all_gap$date_t2)
+daily_gaps$trial_date = ymd(daily_gaps$trial_date)
+
+# Function to retrieve dates and compute composite
+compute_composite <- function(participant, date, is_t2=FALSE) {
+  dates_range <- seq(date - days(6), date, by = "days")
+  
+  # Extract relevant rows
+  relevant_data <- daily_gaps %>%
+    filter(ParticipantIdentifier == participant,
+           trial_date %in% date(dates_range))
+  
+  # Check if less than 7 days and adjust
+  if (nrow(relevant_data) < 7) {
+    num_missing <- 7 - nrow(relevant_data)
+    
+    # If the date is "date_t2" and falls after the latest date in df2
+    if (is_t2 && all(daily_gaps[daily_gaps$ParticipantIdentifier == participant,]$trial_date < date(date))) {
+      
+      # Last day of collected data for participant
+      max_date = max(daily_gaps[daily_gaps$ParticipantIdentifier == participant,]$trial_date)
+      # Is there more than 3 days between the last collected data day and the trait measure completion?
+      if(date(date) - max_date  > 3){
+        # If so, then we don't use that data
+        extra_dates = NA
+        # relevant_data$DAILY_past24_gap = NA
+        # relevant_data$DAILY_goal1_report = NA
+        # relevant_data$DAILY_goal2_report = NA
+      }
+      else{
+        # If there is less than 3 or fewer days gap then we take the previous 7 days data (whether completed or not)
+        extra_dates <- seq(max_date - days(6), max_date, by = "days")
+      }
+    } 
+    else {
+      # this is for t1 errors
+      extra_dates <- seq(date + days(1), date + days(num_missing), by = "days")
+    }
+    
+    relevant_data <- rbind(relevant_data, 
+                           daily_gaps %>% filter(ParticipantIdentifier == participant,
+                                          trial_date %in% date(extra_dates)))
+  }
+  
+  # Compute composite value
+  composite_value <- (mean(relevant_data$DAILY_past24_gap, na.rm=T) * (3/4) +
+                      (100 - mean(relevant_data$DAILY_goal1_report, na.rm=T)) * (1/8) +
+                      (100 - mean(relevant_data$DAILY_goal2_report, na.rm=T)) * (1/8))
+  return(composite_value)
+}
+
+# Apply function to each row in df1
+test_retest_all_gap$daily_means_t1 <- mapply(compute_composite, test_retest_all_gap$ParticipantIdentifier, date(test_retest_all_gap$date_t1), FALSE)
+test_retest_all_gap$daily_means_t2 <- mapply(compute_composite, test_retest_all_gap$ParticipantIdentifier, date(test_retest_all_gap$date_t2), TRUE)
+
+# Calculate correlations and SE
+r_c1_match = cor.test(test_retest_all_gap$gap_t1, test_retest_all_gap$daily_means_t1)$estimate
+r_c1_nonMatch = cor.test(test_retest_all_gap$gap_t1, test_retest_all_gap$daily_means_t2)$estimate
+n_c1_match = 104
+n_c1_nonMatch = 56
+
+r_c2_match = cor.test(test_retest_all_gap$gap_t2, test_retest_all_gap$daily_means_t2)$estimate
+r_c2_nonMatch = cor.test(test_retest_all_gap$gap_t2, test_retest_all_gap$daily_means_t1)$estimate
+n_c2_match = 56
+n_c2_nonMatch = 104
+
+# Test for significance in correlation differences
+# Fisher's z-transformation.
+z_c1_match <- 0.5 * log((1 + r_c1_match) / (1 - r_c1_match))
+z_c1_nonMatch <- 0.5 * log((1 + r_c1_nonMatch) / (1 - r_c1_nonMatch))
+
+z_c2_match <- 0.5 * log((1 + r_c2_match) / (1 - r_c2_match))
+z_c2_nonMatch <- 0.5 * log((1 + r_c2_nonMatch) / (1 - r_c2_nonMatch))
+
+# Standard error and z-value for the difference
+SE_diff_c1 <- sqrt(1/(n_c1_match - 3) + 1/(n_c1_nonMatch - 3))
+z_diff_c1 <- (z_c1_match - z_c1_nonMatch) / SE_diff_c1
+
+SE_diff_c2 <- sqrt(1/(n_c2_match - 3) + 1/(n_c2_nonMatch - 3))
+z_diff_c2 <- (z_c2_match - z_c2_nonMatch) / SE_diff_c2
+
+# One-tailed p-value
+p_value_c1 <- 1 - pnorm(abs(z_diff_c1))
+p_value_c2 <- 1 - pnorm(abs(z_diff_c2))
+```
+
+Note that when there was missing data (i.e. not all measurements for the seven day period were present) we conducted the calculation on the reduced number of days rather than keep going back in time, as the state-level correlation would be expected to decay. We also did not create state-level scores for people who completed their off-boarding trait-level measures more than 3 days after the completion of data collection. Again, we wanted to avoid having an extended gap between the trait-level measure and the state-level data.
+
+We used Fisher's z-transformation to test whether the two correlations were significantly different, where:
+$$z_{\text{diff}} = \frac{z_1 - z_2}{SE}$$
+And standard error ($SE$) is calculated as follows:
+$$SE = \sqrt{\frac{1}{n_1 - 3} + \frac{1}{n_2 - 3}}$$
+Where $n_1$ and $n_2$ are the sample sizes for the two correlations. Fisher's z-transformation is described as:
+$$z = \frac{1}{2} \ln \left( \frac{1 + r}{1 - r} \right)$$
+We then conducted a one-tailed test for significance:
+$$p = 1 - \Phi(\lvert z_{\text{diff}} \rvert)$$
+We found, as anticipated, that the daily-gap measures that were proximate in time to the onboarding Intention-Behavior gap measure correlated slightly more strongly with the initial gap measures than with the offboarding Intention-Behavior gap measures, but the difference was not significant ($r_{matchedTime} = .45, r_{unmatchedTime} = .42, p = .41$). The daily-gap measures proximate in time to the offboarding measure were also more strongly correlated with the offboarding Intention-Behavior gap measure than with the onboarding measure, as predicted, but, again, those differences were not significant ($r_{matchedTime} = .47, r_{unmatchedTime} = .37, p = .26$). So, while the hypothesized effect is strictly present, the magnitude of that effect is not large enough to allow us to say that our hypothesis has been supported by the data.
+
+```{r test-retest-state-effects-plot, echo=FALSE, message=FALSE}
+
+df_plot <- tibble(
+  Time = c("Matched", "Matched", "Unmatched", "Unmatched"),
+  Category = c("Onboarding", "Offboarding", "Onboarding", "Offboarding"),
+  Value = c(r_c1_match, r_c2_match, r_c1_nonMatch, r_c2_nonMatch),
+)
+
+
+ggplot(df_plot, aes(x = Time, y = Value, color = Category, group = Category)) +
+  geom_point(size = 3) +
+  geom_line() +
+  labs(y = 'Correlation (r)', x = 'Comparison') +
+  theme_minimal()
+```
+
+## 3.5 Measure vs. Daily Mean
+
+```{r measure vs. daily gap ICCs, echo=FALSE, message=FALSE}
+# import daily gaps
+daily_gaps = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_3_experience_sampling/3_3_2_processed_data/run_2/run2_selfReport.csv')
+
+daily_gaps = daily_gaps[c('ParticipantIdentifier', 'DAILY_past24_gap', 'DAILY_goal1_report', 'DAILY_goal2_report')]
+# convert success to gap
+daily_gaps$DAILY_goal1_report = 100 - daily_gaps$DAILY_goal1_report
+daily_gaps$DAILY_goal2_report = 100 - daily_gaps$DAILY_goal2_report
+
+daily_gaps$combined_gap = ((3/4) * daily_gaps$DAILY_past24_gap) + ((1/8) * daily_gaps$DAILY_goal1_report) + ((1/8) * daily_gaps$DAILY_goal2_report)
+
+daily_gaps_agg = daily_gaps %>% 
+    group_by(ParticipantIdentifier) %>% 
+    summarise(mean_daily_gap = mean(DAILY_past24_gap, na.rm = T),
+              mean_daily_gap_combo = mean(combined_gap, na.rm = T),
+              n = n()
+              )
+
+# summary stats of daily data observations
+daily_n_m = describe(daily_gaps_agg$n)$mean
+daily_n_sd = describe(daily_gaps_agg$n)$sd
+
+# merge daily gaps with test-retest df
+trt_daily = merge(test_retest_all_gap, daily_gaps_agg, by = 'ParticipantIdentifier')
+# create mean of onboarding offboarding measures
+trt_daily$mean_measure = (trt_daily$gap_t1 + trt_daily$gap_t2) / 2
+
+# calculate ICC: onboarding, daily
+ICC2_on_daily = round(ICC(trt_daily[,c('gap_t1', 'mean_daily_gap')], alpha = 0.5, lmer = F)$results$ICC[2], 2)
+# calculate ICC: onboarding, daily combo
+ICC2_on_dailyCombo = round(ICC(trt_daily[,c('gap_t1', 'mean_daily_gap_combo')], alpha = 0.5, lmer = F)$results$ICC[2], 2)
+# calculate ICC: offboarding, daily
+ICC2_off_daily = round(ICC(trt_daily[,c('gap_t2', 'mean_daily_gap')], alpha = 0.5, lmer = F)$results$ICC[2], 2)
+# calculate ICC: offboarding, daily combo
+ICC2_off_dailyCombo = round(ICC(trt_daily[,c('gap_t2', 'mean_daily_gap_combo')], alpha = 0.5, lmer = F)$results$ICC[2], 2)
+# calculate ICC: mean off/on, daily
+ICC2_onOff_daily = round(ICC(trt_daily[,c('mean_measure', 'mean_daily_gap')], alpha = 0.5, lmer = F)$results$ICC[2], 2)
+# calculate ICC: mean off/on, daily combo
+ICC2_onOff_dailyCombo = round(ICC(trt_daily[,c('mean_measure', 'mean_daily_gap_combo')], alpha = 0.5, lmer = F)$results$ICC[2], 2)
+
+```
+
+Given that we collected 12 weeks of daily measures of the intention-behavior gap, another opportunity to assess the reliability of the Intention-Behavior gap measure would be to see how an average of the onboarding and offboarding Intention-Behavior gap trait measures correlates with the daily reported gaps over the course of the 12-week study. As a reminder, the daily self-report measure was provided by participants each evening. The number of self reports varied, up to a max of 84 ($M = `r round(daily_n_m, 2)`, SD = `r round(daily_n_sd, 2)`$). We used an intraclass correlation statistic to test how similar the mean of the daily self-reports were with the Intention Behavior Gap measure value for each participant. 
+
+In the table below we looked at both the onboarding and offboarding measurements as well as a combination of the two measurements (mean value). We also looked at the daily gap as calculated based on a single measure ('Over the past 24 hours the level of my intention-behavior gap was:', on a scale of 0-100%), as well as a composite measure which included the gaps on two specific goals the participant had set for themselves. We used a simple weighting scheme of 75%/25% for the overall measure and the two specific goal measures. In all cases we found that this composite daily gap measure was more highly correlated with the Intention Behavior Gap measure, and also found that combining both the onboarding and offboarding measurements of the instrument provided the highest correlation.
+
+```{r measure dailyGap table, echo=FALSE, message=FALSE}
+# create table
+tab_01 = data.frame(
+  measure_source = c("onboarding", "onboarding", "offboarding", "offboarding", "combined", "combined"),
+  daily_source = c("single measure", "composite", "single measure", "composite", "single measure", "composite"),
+  ICC = c(ICC2_on_daily, ICC2_on_dailyCombo, ICC2_off_daily, ICC2_off_dailyCombo, ICC2_onOff_daily, ICC2_onOff_dailyCombo)
+)
+
+tab_01_table = knitr::kable(
+  tab_01,
+  format = "html",
+  table.attr = "class='table'",
+  booktabs = TRUE,
+  escape = FALSE,
+  col.names = c("Measure Source", "Daily Gap", "ICC"),
+  align = c("l", "l", "l"),
+  caption = "ICC of Intention Behavior Gap measure and daily self-report of gap"
+  )
+
+kable_styling(tab_01_table, 
+              full_width = TRUE, 
+              bootstrap_options = c("striped", "condensed"))
+```
+
+# 4 Validation
+In order to assess how well our measure is accurately capturing a domain-general intention-behavior gap we employed both traditional and measure-specific methods. We will present our measure-specific methods first, which include testing weather a subject's sampled domains are a significant predictor of an out of sample domain (4.1), and we will also use additional information we captured for each item--each goal domain's importance, time requirement, and effort requirement--to 
+
+## 4.1 Content Validity
+We attempted to establish content validity of our measure, the idea that our items captures the full range of the construct/characteristic, as discussed earlier, by first building off canonical instruments. Specifically we used the Canadian Time Use Survey (2015 - 2016, Cycle 29) developed by Statistics Canada and the American Time Use Survey (2011-2022) developed by the U.S. Bureau of Labor Statistics. We then used the Delphi method to refine and add to this list. 
+
+``` {r other count, echo=FALSE, message=FALSE, warning=FALSE}
+other_percentage = 100 * (1 - sum(is.na(chron$ib_domain_success_Other)) / length(chron$ib_domain_success_Other))
+```
+We did, also, include an optional "other" goal category in the measure, which could be seen as an indicator of the degree to which our items were incomplete. A minority of subjects, `r round(other_percentage, 1)%`, indicated that they had a goal that did not fit within our listed categories. We did not require participants to specify what their "other" goal was, so while we may assume that their responses would have been idiosyncratic enough not to merit a new category, we are unable to confirm this, which is a shortcoming of the study design. That said, for the majority of subjects the provided items captured the full range of their goal categories.
+
+## 4.2 Convergent Validity
+
+### 4.2.1 Moderators
+Given that there are not existing measures of the intention-behavior gap that we are aware of, we were not able to compare the performance of our instrument to others that are designed to measure the same construct. That said, we did select a number of measures that we hypothesized would moderate the translation of intentions to behavior, specifically self control, conscientiousness, grit, sensation-seeking, future time perspective, ambition, social desirability bias, and work ethic.
+
+```{r concurrent-validity table, echo=FALSE, message=FALSE, warning=FALSE}
+# predicting gap cols
+cor_cols_predict_gap = c('con_hex_score',
+             'social_des_score',
+             'ambition_score',
+             'brief_self_control_score',
+             'bsss_overall',
+             'future_time_perspective_score',
+             'grit_scale_score',
+             'secular_measure_work_ethic_score',
+             
+             'domain_gap'
+)
+
+library(corrr)
+
+res.cor = correlate(df[cor_cols_predict_gap])
+
+res.cor %>%
+  focus(domain_gap) %>%
+  mutate(rowname = reorder(term, domain_gap)) %>%
+  ggplot(aes(x = rowname, y = domain_gap, fill = domain_gap)) +
+  geom_col() + coord_flip() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
+                       limits = c(-1, 1), guide = "colorbar") +
+  geom_label(aes(label = round(domain_gap, 2)), vjust = 0.5, hjust = 0, fill='white', color = "black") +
+  theme_minimal()
+
+chart.Correlation(df[cor_cols_predict_gap], histogram=TRUE, pch=19)
+
+# Calculate correlations and p-values for var1 with other variables
+var_names <- names(df[cor_cols_predict_gap])
+# Excluding domain gap
+var_names = subset(var_names, var_names!= 'domain_gap')
+cor_table <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+for (var_name in var_names) {
+  cor_result <- cor.test(df$domain_gap, df[[var_name]])
+  cor_table <- rbind(cor_table, data.frame(Variable = var_name, Correlation = round(cor_result$estimate, 2), P_Value = round(cor_result$p.value, 4)))
+}
+# order by correlation
+cor_table = cor_table[order(cor_table$Correlation),]
+cor_table
+# # create table
+# tab_01 = data.frame(
+#   measure_source = c("onboarding", "onboarding", "offboarding", "offboarding", "combined", "combined"),
+#   daily_source = c("single measure", "composite", "single measure", "composite", "single measure", "composite"),
+#   ICC = c(ICC2_on_daily, ICC2_on_dailyCombo, ICC2_off_daily, ICC2_off_dailyCombo, ICC2_onOff_daily, ICC2_onOff_dailyCombo)
+# )
+# 
+# tab_01_table = knitr::kable(
+#   tab_01,
+#   format = "html",
+#   table.attr = "class='table'",
+#   booktabs = TRUE,
+#   escape = FALSE,
+#   col.names = c("Measure Source", "Daily Gap", "ICC"),
+#   align = c("l", "c", "c"),
+#   caption = "ICC of Intention Behavior Gap measure and daily self-report of gap"
+#   )
+# 
+# kable_styling(tab_01_table, 
+#               full_width = TRUE, 
+#               bootstrap_options = c("striped", "condensed"))
+```
+
+
+We found that all hypothesized moderators except for sensation seeking and work ethic were significantly correlated with the intention-behavior gap (see Table above). The remaining measures had small to moderate correlations which is in line with our expectations as we do not see these constructs as equivalent to the gap, and we also believe there will be considerable effects of individual differences in terms of any particular moderator being stronger or weaker for a given individual. This level of correlation also suggests less risk of issues due to multicollinearity when conducting model comparison (Sections 4.5.1, 4.5.2).
+
+### 4.2.2 Outcomes: Well-being
+In addition to moderators of the gap, we hypothesized that the intention-behavior gap would be negatively associated with well-being (i.e. a higher level of gap would correlate with lower levels of well-being). To test this hypothesis and provide further validation for our measure we looked at measures for flourishing, harmony, quality of life, satisfaction with life, subjective happiness, self-esteem, stress, and a composite depression/anxiety/stress scale. It is worth noting that given the estimate that intentional activity accounts for 40% of the variance in happiness (Lyubomirsky, Sheldon, & Schkade, 2005), we would expect an upper bound of any given correlation with well-being to be $r = .63$.
+
+We did find that all of our measures of well-being were significantly correlated ($ps < 0.001$) with the intention-behavior gap, most at a moderate level (see Table below).
+
+```{r predictive-validity table, echo=FALSE, message=FALSE, warning=FALSE}
+# gap predicts cols
+cor_cols_gap_predicts = c(
+                         'flourishing_score',
+                         'harmony_score',
+                         'qol_score',
+                         'sat_life_score',
+                         'sub_happy_score',
+                         'DASS_overall',
+                         'perceived_stress_score',
+                         'rosenberg_SES_score',
+
+                         'domain_gap'
+)
+
+
+res.cor = correlate(df[cor_cols_gap_predicts])
+
+res.cor %>%
+  focus(domain_gap) %>%
+  mutate(rowname = reorder(term, domain_gap)) %>%
+  ggplot(aes(x = rowname, y = domain_gap, fill = domain_gap)) +
+  geom_col() + coord_flip() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
+                       limits = c(-1, 1), guide = "colorbar") +
+  geom_label(aes(label = round(domain_gap, 2)), vjust = 0.5, hjust = 0.5, fill='white', color = "black") +
+  theme_minimal()
+
+chart.Correlation(df[cor_cols_gap_predicts], histogram=TRUE, pch=19)
+
+# Calculate correlations and p-values for var1 with other variables
+var_names <- names(df[cor_cols_gap_predicts])
+# Excluding domain gap
+var_names = subset(var_names, var_names!= 'domain_gap')
+cor_table <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+for (var_name in var_names) {
+  cor_result <- cor.test(df$domain_gap, df[[var_name]])
+  cor_table <- rbind(cor_table, data.frame(Variable = var_name, Correlation = round(cor_result$estimate, 2), P_Value = round(cor_result$p.value, 4)))
+}
+# order by correlation
+cor_table = cor_table[order(cor_table$Correlation),]
+cor_table
+# # create table
+# tab_01 = data.frame(
+#   measure_source = c("onboarding", "onboarding", "offboarding", "offboarding", "combined", "combined"),
+#   daily_source = c("single measure", "composite", "single measure", "composite", "single measure", "composite"),
+#   ICC = c(ICC2_on_daily, ICC2_on_dailyCombo, ICC2_off_daily, ICC2_off_dailyCombo, ICC2_onOff_daily, ICC2_onOff_dailyCombo)
+# )
+# 
+# tab_01_table = knitr::kable(
+#   tab_01,
+#   format = "html",
+#   table.attr = "class='table'",
+#   booktabs = TRUE,
+#   escape = FALSE,
+#   col.names = c("Measure Source", "Daily Gap", "ICC"),
+#   align = c("l", "c", "c"),
+#   caption = "ICC of Intention Behavior Gap measure and daily self-report of gap"
+#   )
+# 
+# kable_styling(tab_01_table, 
+#               full_width = TRUE, 
+#               bootstrap_options = c("striped", "condensed"))
+```
+### 4.2.3 Outcomes: Empirical
+In addition to non-observable psychological constructs (such as well-being), we looked at two empirical outcomes, body mass index (BMI, self-reported) and grades (provided by the University of Toronto).
+
+#### 4.2.3.1 BMI
+We looked at associations between BMI and a number of moderator and outcome variables along with the intention-behavior gap. While all variables at least correlated in the anticipated direction, none of these correlations reached significance ($ps > .17$, see Table below for detail). The two strongest correlations were for self control ($r(167) = -.1, p = .21$) and the intention-behavior gap ($r(192) = .1, p = .16$).
+
+```{r bmi-measure, echo=FALSE, message=FALSE, warning=FALSE}
+# gap predicts cols
+cor_cols_bmi = c(
+  'bmi',
+  'con_hex_score',
+  'brief_self_control_score',
+  'bsss_overall',
+  'grit_scale_score',
+  'sat_life_score',
+  'sub_happy_score',
+  'DASS_overall',
+  'rosenberg_SES_score',
+  'domain_gap'
+)
+
+res.cor = correlate(df[cor_cols_bmi])
+# note that if we look at only people with diet goals then self control becomes the biggest association
+# x = df[df$ib_domain_goal_Diet == '1', ] 
+
+res.cor = correlate(df[cor_cols_bmi])
+
+res.cor %>%
+  focus(bmi) %>%
+  mutate(rowname = reorder(term, bmi)) %>%
+  ggplot(aes(x = rowname, y = bmi, fill = bmi)) +
+  geom_col() + coord_flip() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
+                       limits = c(-1, 1), guide = "colorbar") +
+  geom_label(aes(label = round(bmi, 2)), vjust = 0.5, hjust = 0.5, fill='white', color = "black") +
+  theme_minimal()
+
+chart.Correlation(df[cor_cols_bmi], histogram=TRUE, pch=19)
+
+# Calculate correlations and p-values for var1 with other variables
+var_names <- names(df[cor_cols_bmi])
+# Excluding bmi
+var_names = subset(var_names, var_names!= 'bmi')
+cor_table <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+for (var_name in var_names) {
+  cor_result <- cor.test(df$bmi, df[[var_name]])
+  cor_table <- rbind(cor_table, data.frame(Variable = var_name, Correlation = round(cor_result$estimate, 2), P_Value = round(cor_result$p.value, 4)))
+}
+# order by correlation
+cor_table = cor_table[order(cor_table$Correlation),]
+cor_table
+
+#--------------------------#
+# mean bmi by mean measure #
+#--------------------------#
+# adding some extra measures to this dataframe or additional analyses
+df$grade_predict_gap = df$gradePredictAvg - df$grades_avg
+
+# COHORT 1
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 1',]
+test1 = test1[c('domain_gap', 'consent_sonaID', 'EndDate', 'bmi', 'grades_avg', 'grade_predict_gap')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1', 'bmi_t1', 'grades_avg', 'grade_predict_gap')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 1',]
+test2 = test2[c('domain_gap', 'consent_sonaID', 'EndDate', 'bmi', 'grades_avg', 'grade_predict_gap')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2', 'bmi_t2', 'grades_avg', 'grade_predict_gap')
+
+# merge cohort 1
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort1$StudentID = as.character(cohort1$Student.Number)
+test_retest = merge(test_retest, cohort1[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows where bmi_t1 and bmi_t2 are both na
+test_retest1 <- test_retest[!(is.na(test_retest$bmi_t1) & is.na(test_retest$bmi_t2)), ]
+
+# add cohort name
+test_retest1$cohort = 'cohort 1'
+
+# COHORT 2
+# create df with time 1 and time 2 columns
+test1 = df[df$onOff=='onBoarding' & df$cohort == 'cohort 2',]
+test1 = test1[c('domain_gap', 'consent_sonaID', 'EndDate', 'bmi', 'grades_avg', 'grade_predict_gap')]
+names(test1) = c('gap_t1', 'StudentID', 'date_t1', 'bmi_t1', 'grades_avg', 'grade_predict_gap')
+test2 = df[df$onOff=='offBoarding' & df$cohort == 'cohort 2',]
+test2 = test2[c('domain_gap', 'consent_sonaID', 'EndDate', 'bmi', 'grades_avg', 'grade_predict_gap')]
+names(test2) = c('gap_t2', 'StudentID', 'date_t2', 'bmi_t2', 'grades_avg', 'grade_predict_gap')
+
+# merge cohort 2
+test_retest = merge(test1, test2, by = 'StudentID')
+
+# add participant ID
+cohort2$StudentID = as.character(cohort2$Student.Number)
+test_retest = merge(test_retest, cohort2[,c('ParticipantIdentifier', 'StudentID')], by = 'StudentID')
+
+# remove rows where bmi_t1 and bmi_t2 are both na
+test_retest2 <- test_retest[!(is.na(test_retest$bmi_t1) & is.na(test_retest$bmi_t2)), ]
+
+# add cohort name
+test_retest2$cohort = 'cohort 2'
+
+# combine
+t1t2_bmi = bind_rows(test_retest1, test_retest2)
+
+# means
+t1t2_bmi$bmi_mean = rowMeans(t1t2_bmi[, c("bmi_t1", "bmi_t2")], na.rm = TRUE)
+t1t2_bmi$gap_mean = rowMeans(t1t2_bmi[, c("gap_t1", "gap_t2")], na.rm = TRUE)
+
+# remove bmi outlier at 57
+t1t2_bmi <- t1t2_bmi[!(t1t2_bmi$bmi_mean > 50), ]
+# remove gap outlier at 80
+t1t2_bmi <- t1t2_bmi[!(t1t2_bmi$gap_mean > 80), ]
+
+# # linear model
+# summary(lm(bmi_mean ~ gap_mean, data = t1t2_bmi))
+
+# calculate correlation
+cor_result <- cor.test(t1t2_bmi$gap_mean, t1t2_bmi$bmi_mean, use="pairwise.complete.obs")
+
+# plot
+ggplot(t1t2_bmi, aes(x = bmi_mean, y = gap_mean)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "lightblue") +
+  geom_label(aes(x = 30, y = 80, label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))), color = "black") +
+  xlab("BMI") +
+  ylab("IB Gap") +
+  theme_minimal()
+
+```
+
+#### 4.3.2.2 Grades
+```{r grades, echo=FALSE, warning=FALSE, message=FALSE}
+
+## Grades predicted by gap?
+# # Linear model
+# summary(lm(grades_avg.x ~ gap_mean, data = t1t2_bmi))
+
+# Correlation
+cor_result <- cor.test(t1t2_bmi$grades_avg.x, t1t2_bmi$gap_mean, use="pairwise.complete.obs")
+
+# Plot
+ggplot(t1t2_bmi, aes(x = grades_avg.x, y = gap_mean)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "lightblue") +
+  geom_label(aes(x = 85, y = 70, label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))), color = "black") +
+  labs(x = "Grades (Avg.)", y = "IB Gap", title = "IB Gap vs. Actual Grades") + 
+  theme_minimal()
+
+## Gap in predicted vs. actual grades predicted by gap?
+# # Linear model
+# summary(lm(grade_predict_gap.x ~ gap_mean, data = t1t2_bmi))
+
+# Correlation
+cor_result <- cor.test(t1t2_bmi$grade_predict_gap.x, t1t2_bmi$gap_mean, use="pairwise.complete.obs")
+
+# Plot
+ggplot(t1t2_bmi, aes(x = grades_avg.x, y = gap_mean)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "lightblue") +
+  geom_label(aes(x = 85, y = 70, label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))), color = "black") +
+  labs(x = "Grade Gap (Predicted - Actual Avg.)", y = "IB Gap", title = "IB Gap vs. Actual Grades") + 
+  theme_minimal()
+
+
+# predicted vs. actual
+df$grade_predict_actual_dif = df$gradePredictAvg - df$grades_avg
+
+summary(lm(grade_predict_actual_dif ~ domain_gap, data = df[df$onOff == 'onBoarding',]))
+
+ggplot(df, aes(x = grade_predict_actual_dif, y = domain_gap)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Predicted - Actual Gap", y = "IB Gap", title = "IB Gap vs. Grade Prediction Gap") + 
+  theme_minimal()
+
+###############################
+# goal vs actual male/female. #
+###############################
+mf = df %>%
+  group_by(gender) %>%
+  summarise(mean_goal = mean(gradeGoalAvg, na.rm = T),
+            mean_predict = mean(gradePredictAvg, na.rm = T),
+            mean_grade = mean(grades_avg, na.rm = T),
+            n = n()
+            ) %>%
+  as_tibble() %>%
+  t() %>%
+  as.data.frame()
+
+names(mf) = c('male', 'female', 'other', 'na')
+mf = mf[2:4, 1:2]
+mf = mutate_all(mf, function(x) as.numeric(as.character(x)))
+
+mf$category = c('goal', 'predicted', 'actual')
+
+mf <- gather(mf, gender, grade, male:female, factor_key=TRUE)
+mf$category = as.factor(mf$category)
+mf$category = factor(mf$category, levels = c("actual", "predicted", "goal"))
+
+# In order to plot the range between the two groups later on, we need two tibbles which are only holding the data of 1 gender each.
+Males <- mf %>%
+  filter(gender == "male")
+Females <- mf %>%
+  filter(gender == "female")
+
+p <- ggplot(mf)+
+  
+ geom_segment(data = Males,
+              aes(x = grade, y = category,
+                  yend = Females$category, xend = Females$grade), #use the $ operator to fetch data from our "Females" tibble
+              color = "#aeb6bf",
+              linewidth = 4.5, #Note that I sized the segment to fit the points
+              alpha = .5) +
+  
+  geom_point(aes(x = grade, y = category, color = gender), size = 4, show.legend = TRUE)+
+  theme_minimal() +
+  ggtitle("Female vs. Male grades") +
+  ylab("")
+
+p
+```
+## 4.3 Out of Sample Prediction
+If there exists is a domain general intention-behavior gap, as we suggest, we would expect a random sample of the intention-behavior gap magnitudes a person had over a number of goal domains to be predictive of an out of sample goal domain gap for that same person. In this case "predictive" means that we believe the expected value of their gap in a held out domain, as calculated based on the average of their gaps in the sampled domains, to contain information about their true gap value in that held out domain. Mathematically this could be expressed as:
+
+$$\mathbb{E}(D_{x}) = \frac{1}{|S|} \sum_{\substack{y \in S \\ y \neq x}} D_y$$
+Where:
+- $\mathbb{E}(D_{x})$ represents the expected value of held out domain $x$.
+- $D_y$ is the value of the $y^{th}$ domain.
+- $|S|$ represents the number of domains in the sampled subset $S$.
+
+We should be clear that while this equation represents the logic of our theory, we do not, in practice, expect to find a precise equivalence, due to individual variance across domains. However, even with this variance we do expect a significantly smaller error if $D_x$ and the sampled $D_y$s are from the same subject, rather than some other subject, or the population mean. We take three approaches to validating that this is indeed the case. 
+
+In our first approach, we use a permutation test, where, for a given subject (e.g. $subject_i$) and specific domain (e.g. $D_{ix}$), instead of trying to predict the specific domain gap from the mean of that same subject's other domain gaps ($D_{iy}$s), we use a randomly chosen subject's (e.g. $subject_j$) average domain gap (excluding the selected domain). We use this methodology to create a set of "predicted" gaps for all of the domains of $subject_i$. We create estimates for all other subjects using this same methodology. We then repeated this process 1000 times and each time calculate the error in each estimate (for a given subject in a given domain ($D_{ix}$)) as follows:
+
+$$\text{Error} = \left| \mathbb{E}(D_{ix}) - D_{ix} \right|$$
+$\text{Error}$ is the absolute difference between the expected value of $D_x$ (represented by $\mathbb{E}(D_x)$) and the actual value of $D_x$. This is then averaged using the following formula:
+
+$$\text{AvgError} = \frac{1}{\sum_{i=1}^{n} m_i} \sum_{i=1}^{n} \sum_{j=1}^{m_i} \text{Error}_{ij}$$
+
+Where:
+- $n$ represents the total number of subjects.
+- $m_i$ represents the total number of domains for the $i^{th}$ subject.
+- $\text{Error}_{ij}$ represents the error for the $j^{th}$ domain of the $i^{th}$ subject.
+
+The denominator in the fraction to average all of the error scores is $\sum_{i=1}^{n} m_i$ instead of simply $n \times m$ since each subject can have a different number of goal domains. We then compare the $\text{AvgError}$ of a matched subject with the distribution of $\text{AvgError}$s we get from our permuted subjects to test if a subject's own goal domain gaps do a better job of predicting a held out domain than a random other subject's domain gaps. The Figure below suggests that this is indeed the case.
+
+To note as well is the fact that we normalized all gap scores before conducting this calculation given that there are systematic differences in goal domain gap magnitudes (e.g. Volunteering average gap is close to 60% while Work average gap is just below 35%). This means we are trying to predict how many standard deviations above or below the average a subject is in each domain, rather than their actual score.
+
+```{r out-of-sample-gap-prediction, echo=FALSE, message=FALSE, warning=FALSE}
+# calculate 
+
+# Select success columns
+data = df %>%
+  select(contains('domain_success_'))
+
+# Convert to numeric
+data <- data.frame(lapply(data, as.numeric))
+
+# Normalize
+data_norm = data.frame(scale(data))
+
+# create a function to compute the mean of all non-NA values in a row, excluding the current column value
+compute_mean <- function(row, current_column) {
+  values <- row[!is.na(row)]
+  values <- values[-current_column]
+  mean(values)
+}
+
+# create the second dataframe
+data_norm2 <- data_norm
+
+# for each row in the original dataframe, compute the values for the second dataframe
+for (i in 1:nrow(data_norm)) {
+  for (j in 1:ncol(data_norm)) {
+    if (is.na(data_norm[i, j])) {
+      data_norm2[i, j] <- NA
+    } else {
+      data_norm2[i, j] <- compute_mean(data_norm[i, ], j)
+    }
+  }
+}
+
+
+#------#
+# Test #
+#------#
+
+data_norm_complete <- data_norm[!apply(is.na(data_norm), 1, all), ]
+data_norm2_complete <- data_norm2[!apply(is.na(data_norm2), 1, all), ]
+
+## T Test of errors
+# Original - Predicted vs. Original - Avg (0)
+pred_error = abs(data_norm_complete - data_norm2_complete)
+
+vec_pred <- as.vector(as.matrix(pred_error))
+vec_mean <- as.vector(as.matrix(abs(data_norm_complete)))
+vec_pred = na.omit(vec_pred)
+vec_mean = na.omit(vec_mean)
+
+# Test between predicted and average gap values
+gap_mean_t = t.test(vec_pred, vec_mean)
+
+# Permutation Test
+## Takes a long time to run so can just load the data from previous trial with n = 1000
+permutation_avg_error = read_rds('data/permutation_avg_error.rds')
+## mix the order of the rows before converting to vector and measuring average error
+
+# # set the number of resamples
+# n <- 1000
+# 
+# # initialize a vector to store the permutation errors
+# permutation_avg_error <- numeric(n)
+# 
+# # for each permutation resample
+# for (rep in 1:n) {
+#   print(rep)
+#   # create prediction df
+#   # create the second dataframe
+#   pred_df <- data_norm_complete
+#   
+#   # shuffle indices
+#   random_indices <- sample(nrow(data_norm_complete))
+#   # for each row in the original dataframe, compute the values for the second dataframe
+#   for (i in 1:nrow(data_norm_complete)) {
+#     for (j in 1:ncol(data_norm_complete)) {
+#       if (is.na(data_norm_complete[i, j])) {
+#         pred_df[i, j] <- NA
+#       } else {
+#         pred_df[i, j] <- compute_mean(data_norm_complete[random_indices[i], ], j) # function ignores the current col when calculating mean
+#       }
+#     }
+#   }
+#   
+#   # calculate error with new pred df
+#   pred_error = abs(data_norm_complete - pred_df)
+#   average_error = mean(unlist(pred_error), na.rm = T)
+#   
+#   # store the permuted error
+#   permutation_avg_error[rep] <- average_error
+# }
+# 
+# write_rds(permutation_avg_error, "permutation_avg_error.rds")
+
+# # compute the 95% confidence interval
+# ci <- quantile(permutation_avg_error, 0.05)
+# 
+# ci
+
+# TTest
+pred_error_mean = mean(vec_pred)
+result = t.test(permutation_avg_error, mu = pred_error_mean)
+
+# create a ggplot object
+ggplot(data = data.frame(permutation_avg_error), aes(x=permutation_avg_error))+
+  geom_density(fill="#619CFF", alpha = 0.5) +
+  geom_vline(xintercept = mean(vec_pred), color = "#F8766D", linetype = "dashed") +
+  geom_label(aes(x = mean(vec_pred), y = 10, label = "0.63"), color = "#F8766D", fill = "white") +
+  labs(x = "Average Error (SD)", y = 'Density', title = 'Permutation Test') +
+  xlim(0.6, 1.04) +
+  theme_minimal()
+
+
+
+```
+A one-sample t-test was computed to determine whether the permuted subject error was different to the within-subject error (`r round(pred_error_mean, 2)`). The permuted average prediction error across 1000 repetitions was `r round(result$estimate, 2)` which was significantly higher than the non-permuted within-subject error (95% CI[`r round(result$conf.int[1], 3)`, `r round(result$conf.int[2], 3)`, t(`r result$parameter`) = `r round(result$statistic, 1)`, p < .001).
+
+The second, alternative approach we take to testing whether there is meaningful signal in our measure used a different prediction approach. In this case we looked to predict a subject's unmeasured domain gap ($d_{xi}$) by a random sample of another intention-behavior gap for that same subject, but in a different domain (e.g. $d_{yi}$). This is essentially asserting that for an unknown intention-behavior gap ($d_{xi}$) we expect to find a higher correlation between *any* other intention-behavior gap domain of that *same subject* and the unknown domain ($d_{xi}$), than between the unknown domain ($d_{xi}$) and a *different subject's* gap for that *same* domain ($d_{xj}$). To represent this mathematically, for a given subject $i$ and a randomly selected subject $j$:
+
+$$\mathbb{E}[\rho(D_{ix}, D_{iy})] > \mathbb{E}[\rho(D_{ix}, D_{jx})]$$
+Where:
+- $D_i = \{ D_{i1}, D_{i2}, ... , D_{in} \}$ represents a set of domain ($D$) values for subject $i$.
+- $D_{ix}$ is a randomly chosen domain value from $D_i$.
+- $D_{iy}$ is a second randomly chosen domain value from $D_i$ (where $x \neq y$).
+- subject $j$ is randomly chosen where $i \neq j$).
+
+To test this we replaced all values for all subjects in all domains (e.g. $D_{ix}$) with a randomly chosen other domain from the same subject (e.g. $D_{iy}$, where $x \neq y$) as well as with a random other subject's value from the same domain (e.g. $D_jx$, where $i \neq j$). We then tested the average correlation between these predicted values and the actual values. We repeated this process 100 times to come up with a distribution of correlations for both methods, as shown in the Figure below. 
+
+``` {r out-of-sample-predict-Cendri, warning=FALSE, message=FALSE, echo=FALSE}
+## CENDRI IDEA
+# don't normalize
+# Select success columns
+data = df %>%
+  select(contains('domain_success_'))
+
+# Convert to numeric
+data <- data.frame(lapply(data, as.numeric))
+# vector version
+data_vec <- as.vector(as.matrix(data))
+
+# # Repeats
+# n <- 100
+# 
+# # initialize vectors to store the correlations
+# subject_cor <- numeric(n)
+# domain_cor <- numeric(n)
+# 
+# 
+# # for each permutation resample
+# for (rep in 1:n) {
+#   print(rep)
+#   # create prediction df
+#   # create the second dataframe
+#   pred_df <- data
+#   rand_df <- data
+#   
+#   # for each row in the original dataframe, compute the values for the second dataframe
+#   for (i in 1:nrow(data)) {
+#     for (j in 1:ncol(data)) {
+#       if (is.na(data[i, j])) {
+#         pred_df[i, j] <- NA
+#         rand_df[i, j] <- NA
+#       } else {
+#         # pred df
+#         row_values = data[i, -j]
+#         row_values = row_values[!is.na(row_values)]
+#         pred_df[i, j] <- sample(row_values, 1) # rand select in row (subject)
+#         # rand df
+#         col_values = data[-i, j]
+#         col_values = col_values[!is.na(col_values)]
+#         rand_df[i, j] <- sample(col_values, 1) # rand select in column (domain)
+#       }
+#     }
+#   }
+# 
+#   # calculate correlation with pred df
+#   # convert the dataframes to vectors
+#   pred_vec <- as.vector(as.matrix(pred_df))
+#   rand_vec <- as.vector(as.matrix(rand_df))
+#   
+#   # compute the correlation between the two vectors
+#   pred_cor <- cor(data_vec, pred_vec, use = 'complete.obs')
+#   rand_cor = cor(data_vec, rand_vec, use = 'complete.obs')
+# 
+#   # store the correlations
+#   subject_cor[rep] <- pred_cor
+#   domain_cor[rep] <- rand_cor
+# }
+# 
+# write_rds(subject_cor, "data/subject_cor43.rds")
+# write_rds(domain_cor, "data/domain_cor43.rds")
+
+
+## Takes a long time to run so can just load the data from previous trial with n = 100
+subject_cor = read_rds('data/subject_cor43.rds')
+domain_cor = read_rds('data/domain_cor43.rds')
+
+
+# Create a combined data frame
+plot_df <- data.frame(
+  value = c(subject_cor, domain_cor),
+  group = factor(rep(c("within subject", "within domain"), each=n))
+)
+
+# Calculate overlap percentage (this is a simplistic approximation)
+min_max <- range(c(subject_cor, domain_cor))
+x_vals <- seq(min_max[1], min_max[2], length.out = n)
+dens1 <- density(subject_cor, from=min_max[1], to=min_max[2], n=n)$y
+dens2 <- density(domain_cor, from=min_max[1], to=min_max[2], n=n)$y
+overlap_area <- sum(pmin(dens1, dens2) * diff(x_vals)[1])
+percentage_overlap <- overlap_area / sum(dens1 * diff(x_vals)[1]) * 100  # relative to the first distribution
+
+# mean and 95% confidence interval
+result = t.test(plot_df[plot_df$group=='within subject',]$value, plot_df[plot_df$group=='within domain',]$value)
+within_s_mean = mean(plot_df[plot_df$group=='within subject',]$value)
+within_d_mean = mean(plot_df[plot_df$group=='within domain',]$value)
+within_s_sd = sd(plot_df[plot_df$group=='within subject',]$value)
+within_d_sd = sd(plot_df[plot_df$group=='within domain',]$value)
+
+# Plot
+ggplot(plot_df, aes(x = value, fill = group)) +
+  geom_density(alpha = 0.5) +
+  ggtitle(paste("Density Plots with Percentage Overlap: ", round(percentage_overlap, 2), "%")) +
+  xlab("Correlation (r)") + ylab("Density") +
+  xlim(0, .35) +
+  theme_minimal()
+```
+The mean correlation in the within-subject calculation was `r round(within_s_mean, 2)` (SD = `r round(within_s_sd, 2)`), whereas the mean for the within-domain calculation was `r round(within_d_mean, 2)` (SD = `r round(within_d_sd, 2)`). A Welch two-samples t-test showed that the correlation for predictions made using a subjects own domains, t(`r round(result$parameter, 1)`) = `r result$statistic`, p < 0.001.
+
+``` {r mean vs. prediction test, echo=FALSE, message=FALSE, warning=FALSE}
+# Original - Predicted vs. Original - Avg (0)
+pred_errors_w_sub = abs(data_norm_complete - data_norm2_complete)
+# create array of 0s
+zero_array = array(0, dim = dim(data_norm_complete))
+pred_errors_means = abs(data_norm_complete - zero_array)
+
+# Calculate SDs
+sd_w_sub = sd(unlist(pred_errors_w_sub), na.rm = T)
+sd_means = sd(unlist(pred_errors_means), na.rm = T)
+
+# T-test
+result = t.test(pred_errors_w_sub, pred_errors_means)
+```
+
+Finally, the third approach was to test whether the within-subject method used in the first test of estimating the held out domain ($D_ix$) performs better than just taking the domain average for all domains (${ D_1, D_2, ... , D_n }$). We conducted this test with the normalized data for simplicity since in this case all predictions would simply be $0$. We then calculated the average error for both methods. The average error of the within subject method was `r round(result$estimate[1], 2)` (SD = `r round(sd_w_sub, 2)`) while the average error of the method that just used domain mean values was `r round(result$estimate[1], 2)` (SD = `r round(sd_means, 2)`). A Welch two-samples t-test showed that the within subject prediction significantly outperformed a sample mean by domain strategy (t(`r round(result$parameter, 0)`) = `r round(result$statistic, 2)`, p < .001). Combined, these tests give us confidence that our measure is picking up meaningful signal, and that intention-behavior gaps *do* generalize within subject across disparate domains.
+
+## 4.4 Informing the Intention-Behavior Gap
+As an additional validation we wanted to check whether our intention-behavior gap measure had a significant association with our outcome of interest, well-being, above and beyond the hypothesized moderators that were correlated with the gap measure itself (e.g. self-control, conscientiousness, etc.). However, we also thought it would make sense to conduct this test both with the raw intention-behavior gap and a weighted version of the intention-behavior gap that takes advantage of additional information we collected about each goal from our subjects.
+
+So far our intention-behavior gap measure has ignored the fact that we know more than simply the intention-behavior gap in each selected goal domain. Specifically, we collected information about the importance, effort, and time requirements for the goals that our subjects had in each goal domain. Our reasoning is that it seems likely that the degree to which someone's success in a given goal domain affected their well-being would be related to how important that domain was to them, as well as how much time and effort were required for that goal domain. For example, you might expect those domains that are more important to contribute more to their well-being. To incorporate these additional dimensions to predict our outcome variable we employed a 10-fold cross-validation procedure (to avoid overfitting) using the following equation:
+
+\begin{equation}
+  $$
+  Y \sim \beta_0 + \beta_1x_g + \beta_2x_i + \beta_3x_e + \beta_4x_t + \epsilon
+  $$
+  (\#eq:weightedGap/v1)
+\end{equation}
+
+In this equation (Equation \@ref(eq:weightedGap/v1) $x_g$ is the intention behavior gap, $x_i$ is the domain importance, $x_e$ is the effort to accomplish one's goals in that domain and $x_t$ is the amount of time required to complete one's goals in that domain. Fitting this model we find that we increase our correlation with our eight well-being outcome variables on average by 6.7%, going from an average correlation of .359 to .383.
+
+The model did not seem to be overfitting, as training and testing error were very similar for the eight outcome variables, with a mean absolute difference of 0.03 (SD = 0.04), keeping in mind that we are working with normalized data so this difference is in units of standard deviation itself. It is also interesting to look at the coefficient values for the model. Domain success is clearly the main predictor of our well-being measures as you can observe in \@ref(fig:weighted-measure1) below.
+
+```{r weighted-measure1, fig.cap = "Coefficient violin plots are labeled with mean values across all outcome variables.", echo=FALSE, message=FALSE, warning=FALSE}
+
+coefs = read_csv('data/model1_coefs.csv')
+
+# convert to long
+df_long <- coefs %>% 
+  select(c('outcome', 'success', 'import', 'effort', 'time')) %>% 
+  pivot_longer(cols = c(success, import, effort, time), names_to = "Variable", values_to = "Value")
+
+# Calculate the mean for each variable
+var_means <- df_long %>% 
+  group_by(Variable) %>% 
+  summarise(mean_value = mean(Value)) %>%
+  arrange(desc(mean_value))
+
+# Order the factor levels based on mean
+df_long$Variable <- factor(df_long$Variable, levels = var_means$Variable)
+
+# Plot
+ggplot(df_long, aes(x=Variable, y=Value, fill=Variable)) +
+  geom_violin(alpha = 0.5, show.legend = FALSE) +
+  geom_boxplot(width = 0.1, fill = "white", alpha = 0.9, outlier.shape = NA) +
+  geom_jitter(width=0.2, aes(color=Variable), show.legend = FALSE) + 
+  geom_label(data = var_means, aes(y = mean_value, label = round(mean_value, 3)), vjust = 3.5, alpha = 0.9, show.legend = FALSE) +
+
+  labs(title="Weighted Gap: Model 1", y="Coefficient") +
+  # geom_label(aes(x = 1.5, y = 80, label = paste("t =", round(result$statistic, 2), "\np-value =", round(result$p.value, 3))), color = "black", fill = "white") +
+  theme(legend.position = "none") +
+  theme_minimal()
+```
+
+However, we could also imagine that the effect of success on well-being isn't just straightforward, but instead that there could be meaningful interactions between our predictors. Imagine two individuals who both achieve a small intention-behavior gap in a particular domain, let's say, career/school. For the first person, who views their career/school as critically important, this small gap might substantially boost their overall well-being. On the other hand, the second individual might not consider their career as crucial to their identity or happiness. So, even if they achieve the same level of success, it might not significantly impact their overall well-being. For them, other domains (like family, hobbies, or exercise) might play a more vital role in determining their happiness. We have therefore also constructed a model that includes interactions between the intention-behavior gap and importance, effort, and time as additional predictors in our model. We again used 10-fold cross-validation with three terms added to the previous equation:
+
+\begin{equation}
+  $$
+  G_w \sim \beta_0 + \beta_1x_g + \beta_2x_i + \beta_3x_e + \beta_4x_t + \beta_5x_gx_i + \beta_6x_gx_e + \beta_7x_gx_t  + \epsilon
+  $$
+  (\#eq:weightedGap/v2)
+\end{equation}
+
+Here (Equation \@ref(eq:weightedGap/v2), for example, $x_gx_i$ is the interaction, for a given domain, between a subject's gap and the importance of that gap ($e$ represents effort and $t$, time). This model correlated even more strongly with our well-being outcome variables, with a 19.8% improvement in average correlation values (from $r =.359$ to $r = .43$) over the "gap only" model, and a 12.3% increase over the weighted model without interaction terms (from $r =.383$ to $r = .43$).
+
+Again, the model did not seem to be overfitting as training and testing error were very similar for the eight outcome variables, with a mean absolute difference of 0.03 (SD = 0.04), keeping in mind that we are working with normalized data so this difference is in units of standard deviation itself. It is also interesting to look at the coefficient values for the model. Domain success is no longer the main predictor of our well-being measure but rather the interaction between success and effort, as you can observe in \@ref(fig:weighted-measure2).
+
+```{r weighted-measure2, fig.cap = "Coefficient violin plots are labeled with mean values across all outcome variables.", echo=FALSE, message=FALSE, warning=FALSE}
+
+coefs = read_csv('data/model2_coefs.csv')
+
+# convert to long
+df_long <- coefs %>% 
+  dplyr::select(c('outcome', 'success', 'import', 'effort', 'time', 'successXimport', 'successXeffort', 'successXtime')) %>% 
+  pivot_longer(cols = c(success, import, effort, time, successXimport, successXeffort, successXtime), names_to = "Variable", values_to = "Value")
+
+# Calculate the mean for each variable
+var_means <- df_long %>% 
+  group_by(Variable) %>% 
+  summarise(mean_value = mean(Value)) %>%
+  arrange(desc(mean_value))
+
+# Order the factor levels based on mean
+df_long$Variable <- factor(df_long$Variable, levels = var_means$Variable)
+
+# Plot
+ggplot(df_long, aes(x=Variable, y=Value, fill=Variable)) +
+  geom_violin(alpha = 0.5, show.legend = FALSE) +
+  geom_boxplot(width = 0.1, fill = "white", alpha = 0.9, outlier.shape = NA) +
+  geom_jitter(width=0.2, aes(color=Variable), show.legend = FALSE) + 
+  geom_label(data = var_means, aes(y = mean_value, label = round(mean_value, 3)), vjust = 3.5, alpha = 0.9, show.legend = FALSE) +
+
+  labs(title="Weighted Gap: Model 2", y="Coefficient") +
+  # geom_label(aes(x = 1.5, y = 80, label = paste("t =", round(result$statistic, 2), "\np-value =", round(result$p.value, 3))), color = "black", fill = "white") +
+  theme(legend.position = "none") +
+  theme_minimal()
+```
+
+The most predictive variables in the model were the interactions between the gap and effort as well as the gap and importance. 
+
+It is also interesting to note that the model coefficients make the interesting suggestion that in the hypothetical case where you successfully accomplish a goal that has no importance, and takes no time or effort, this actually could have a negative impact on well-being. Also, and perhaps more obvious, is the finding that effort without success has the largest negative influence on our well-being measures.
+
+
+## 4.5 Model Selection
+
+We wanted to test whether our intention-behavior gap measure explained unique variance in our well-being outcome measures when other predictors were included in the same model. 
+
+### 4.5.1 Individual Outcome Variable Prediction
+Specifically, we added all moderator variables and the weighted intention-behavior gap then iterated through all possible models using the `leaps` package (version 3.1; Miller TLboFcbA, 2020). We selected the best fitting model for each outcome measure with each possible number of predictors, from a model with a single predictor up to a model that included all available (nine) predictors.
+
+```{r measure-comps, echo=FALSE, message=FALSE, warning=FALSE}
+
+library(caret) # or easy machine learning workflow
+library(leaps) # for computing best subsets regression
+
+# load data
+df_weighted = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_1_gap_measure/3_1_2_processed_data/weighted_gap.csv')
+
+# select prediction and outcome columns 
+predict_cols = c(
+  'con_hex_score',
+  'social_des_score',
+  'ambition_score',
+  'brief_self_control_score',
+  'bsss_overall',
+  'future_time_perspective_score',
+  'grit_scale_score',
+  'secular_measure_work_ethic_score',
+  'model2_gap' # weighted gap
+)
+
+outcome_cols = c(
+  'DASS_overall_Reversed',
+  'flourishing_score',
+  'harmony_score',
+  'perceived_stress_Reversed',
+  'rosenberg_SES_score',
+  'qol_score',
+  'sat_life_score',
+  'sub_happy_score'
+)
+
+# Select relevant columns
+df_weighted = df_weighted[ ,c(predict_cols, outcome_cols)]
+
+# Store all results
+results <- data.frame(
+  Outcome = character(0),
+  RMSE = numeric(0),
+  DF = numeric(0),
+  R_2 = numeric(0),
+  setNames(lapply(predict_cols, function(x) numeric(0)), predict_cols),  # Columns for each predictor
+  var_num = numeric(0),
+  iteration = numeric(0)
+)
+
+## Repeated Cross-Validation to achieve predictor stability
+# Set number of repeats
+iterations = 100
+
+# Repeat CV process
+for (i in 1:iterations) {
+  # print(paste('Cross Validation Repeat #', i))
+  
+  # # Set seed
+  # set.seed(42)
+  
+  # Iterate over outcomes
+  for (outcome in outcome_cols){
+    
+    # select data with relevent predictor
+    data = df_weighted[,c(predict_cols, outcome)]
+    # Remove rows with NA values
+    data = na.omit(data)
+    data = data.frame(scale(data))
+    # Weighted gap is actually "success", not gap, so reverse it
+    data$model2_gap = data$model2_gap * -1
+    
+    # for each outcome, use regsubsets to find the best models
+    best_subsets <- regsubsets(as.formula(paste(outcome, "~ .")), data = data, nvmax = ncol(data) - 1)
+    
+    # Extract the best models based on coefficients
+    best_models <- lapply(1:(ncol(data) - 1), function(num_predictors) {
+      coefs <- coef(best_subsets, id = num_predictors)
+      predictors <- names(coefs)[-1]  # exclude intercept
+      formula_str <- paste(outcome, "~", paste(predictors, collapse = " + "))
+      return(as.formula(formula_str))
+    })
+    
+  # Iterate over best models
+    for (formula_obj in best_models) {
+      
+      # 10-fold cross-validation
+      ctrl <- trainControl(method = "cv", number = 5, savePredictions = TRUE)
+      fit <- train(formula_obj, data = data, method = "lm", trControl = ctrl, metric = "RMSE")
+      
+      # Extracting the outcome variable name
+      outcome_var <- as.character(formula_obj[[2]])
+      
+      # Extracting the coefficients from the final linear model
+      coefficients <- fit$finalModel$coefficients
+      
+      # Storing results
+      temp_df <- data.frame(
+        Outcome = outcome_var,
+        RMSE = fit$results$RMSE,
+        DF = df.residual(fit$finalModel),
+        R_2 = with(fit$finalModel, summary.lm(fit$finalModel)$r.squared),
+        matrix(NA, ncol = length(predict_cols), nrow = 1, dimnames = list(NULL, predict_cols)),
+        var_num = length(fit$finalModel$coefficients) - 1,
+        iteration = i
+      )
+      
+      # Fill in the coefficients for the predictors in this model
+      temp_df[1, names(coefficients)] <- coefficients
+      
+      # Add to the results data frames=
+      results <- rbind(results, temp_df)
+    }
+  }
+}
+
+# Rename columns for clarity
+results <- results %>%
+  rename(
+    Conscientiousness = con_hex_score,
+    `Social desirability` = social_des_score,
+    Ambition = ambition_score,
+    `Self-control` = brief_self_control_score,
+    `Sensation-seeking` = bsss_overall,
+    `Future-perspective` = future_time_perspective_score,
+    Grit = grit_scale_score,
+    `Work ethic` = secular_measure_work_ethic_score,
+    `Intention-behavior gap` = model2_gap
+  )
+
+# Select best models by lowest RMSE (1 for each iteration)
+best_fits = results %>%
+  group_by(Outcome, iteration) %>%
+  filter(RMSE == min(RMSE)) %>%
+  ungroup() %>%
+  dplyr::select(-`(Intercept)`) # remove intercept column
+
+# Rename outcomes for clarity
+new_names = c(
+  'DASS (reversed)',
+  'Flourishing',
+  'Harmony',
+  'Stress (reversed)',
+  'Self-esteem',
+  'Quality of life',
+  'Life satisfaction',
+  'Subjective happiness'
+)
+
+# Repeat based on number of iterations
+new_names = rep(new_names, iterations)
+# Assign new names
+best_fits$Outcome = new_names
+
+# Find the mean predictor number of the best model for each outcome
+mean_parm_count = best_fits %>%
+  group_by(Outcome) %>%
+  summarise(meanParams = mean(var_num))
+
+# Plot hists of best model number of predictors for each outcome variable
+ggplot(best_fits, aes(x = var_num)) +
+  geom_histogram(binwidth = 1, fill = "dodgerblue", color = "white", alpha = 0.7) +
+  facet_wrap(~ Outcome, scales = "free") +
+  scale_x_continuous(breaks = function(x) seq(floor(min(x)), ceiling(max(x)), by = 1), limits = c(1,9)) +
+  theme_minimal() +
+  labs(title = "Histograms by Group", x = "Value", y = "Frequency")
+```
+
+We then evaluated each of these models individually using 10-fold cross-validation, to avoid overfitting, with the `caret` package (version 6.0.94; Kuhn, Max, 2008). We looked at the resulting average fit across the folds to find the model that minimized RMSE for that particular outcome on the held out data. 
+
+```{r model-selection-flourishing, echo=FALSE, fig.cap="RMSE based on number of predictor variables with 10-fold cross validation.", message=FALSE, warning=FALSE}
+
+# Create plotting data frame
+df_plot = results[results$Outcome == 'sub_happy_score', ]
+df_plot$Predictors = 1:9
+
+# Find the minimum RMSE
+min_rmse <- min(df_plot$RMSE)
+num_predictors = df_plot[df_plot$RMSE == min(df_plot$RMSE), ]$Predictors
+
+# Plot
+ggplot(df_plot, aes(x = Predictors, y = RMSE, color = (RMSE == min_rmse))) +
+  geom_line(aes(group = 1, color='black')) +
+  geom_point(size = 3) +
+  scale_x_continuous(breaks = seq(min(as.numeric(df_plot$Predictors)), 
+                                  max(as.numeric(df_plot$Predictors)), by = 1)) +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "black")) +
+  labs(title = paste("RMSE Values: Subjective Happiness"),
+       x = "Predictors", y = "RMSE", color = "Min RMSE") +
+  theme_minimal()
+```
+For example, in \@ref(fig:model-selection-flourishing) where we are looking at the "Subjective Happiness" scale outcome, we can see that the best model includes a total of `r num_predictors` predictors. We can see which variables are included in this `r num_predictors`-predictor model in Table \@ref(model-selection-table), along with all other outcome variables and the variables included in the best fitting model for each outcome, with their standardized coefficients indicated.
+
+```{r model-selection-table, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+# Calculate means and put in extra row
+# Replace NA values with 0
+df_means = best_fits
+df_means[is.na(df_means)] <- 0
+
+# Compute column means
+column_means <- apply(abs(df_means[, 2:13]), 2, mean)
+column_means = c(Outcome = 'Means', column_means)
+
+# Add as bottom row on table
+df_means = rbind(df_means, column_means)
+
+# Convert all columns to numeric except the first one
+df_means[] <- lapply(1:ncol(df_means), function(i) {
+  if (i != 1) {
+    return(as.numeric(df_means[[i]]))
+  } else {
+    return(df_means[[i]])
+  }
+})
+
+## Order best fits data frame by abs value of mean coef
+# Extract values from the last row for columns 2 to the end
+last_row_values <- abs(unlist(df_means[nrow(df_means), 5:ncol(df_means)]))
+
+# Get order indices
+order_indices <- order(last_row_values, decreasing = TRUE)
+
+# Rearrange columns based on order indices, keeping the first 4 columns unchanged
+df_means <- df_means[, c(1:4, order_indices + 4)]
+
+
+# Round all numeric columns for table
+df_means_ordered_round <- data.frame(lapply(df_means, function(x) {
+  if (is.numeric(x)) {
+    return(round(x, 2))
+  } else {
+    return(x)
+  }
+}))
+
+# Function to apply styling based on NA values
+color_na <- function(x) {
+  ifelse(x==0, cell_spec(x, background = "black"), x)
+}
+
+# Apply the function to each column in the dataframe
+df_styled <- data.frame(lapply(df_means_ordered_round, color_na))
+
+# Rename rounded df columns
+names(df_styled) = names(df_means)
+
+# Create table
+outcome_fits_table = knitr::kable(
+  df_styled,
+  format = "html",
+  table.attr = "class='table'",
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = "Best model fits with standardized beta weights"
+  ) %>%
+  column_spec(1, bold = TRUE)  # Make the first column bold
+
+kable_styling(outcome_fits_table,
+              full_width = TRUE,
+              bootstrap_options = c("striped", "condensed"))
+```
+
+Table \@ref(model-selection-table) also shows that the Intention-Behavior gap measure was the only variable that was included in every model for all of our eight well-being outcome measures. The bottom row of the table shows the average absolute magnitude of each feature's standardized beta weight in the best-fitting models, where this average was calculated using $0$ for a feature's beta weight if it was not included in the best fitting model. Again, the Intention-Behavior gap appears to have the highest average standardized regression coefficient ($\beta$) of .31, although the difference between this value and that of Self-control ($\beta_{Avg} = .27$) is not significant ($t(9.4) = 1.01, p = .34$) according to a Welch two sample t-test. The difference between the Intention-Behavior gap measure and Conscientiousness ($\beta_{Avg} = .15$), however, is highly significant ($t(10.2) = 4.58, p < 0.001$), as are the differences with the rest of the predictor variables.
+
+### 4.5.2 Combined Outcome Variables Prediction
+An alternative approach is to combine the eight outcome variables into a single value, and then to test how predictive each of our designated moderators and the Intention-Behavior gap measure are of this combined outcome value. We perform this amalgamation of the eight well-being outcome variables using principal components analysis. As shown in the scree plot (Figure \@ref:(pca-outcomes-moderators)) there is a pronounced "elbow" at the first component, indicating that the bulk of the variance is explained by this single component on its own.
+
+```{r pca-outcomes-moderators, fig.cap = "Scree plot of cumulative variance explained with each additional principal component.", echo=FALSE, message=FALSE, warning=FALSE}
+# load data
+df_pca = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_1_gap_measure/3_1_2_processed_data/weighted_gap.csv')
+
+# select prediction and outcome columns 
+predict_cols = c(
+  'con_hex_score',
+  'social_des_score',
+  'ambition_score',
+  'brief_self_control_score',
+  'bsss_overall',
+  'future_time_perspective_score',
+  'grit_scale_score',
+  'secular_measure_work_ethic_score',
+  'model2_gap' # weighted gap
+)
+
+outcome_cols = c(
+  'DASS_overall_Reversed',
+  'flourishing_score',
+  'harmony_score',
+  'perceived_stress_Reversed',
+  'rosenberg_SES_score',
+  'qol_score',
+  'sat_life_score',
+  'sub_happy_score'
+)
+
+# Select relevant columns
+df_pca = df_pca[ ,c(predict_cols, outcome_cols)]
+# Weighted gap is actually "success", not gap, so reverse it
+df_pca$model2_gap = df_pca$model2_gap * -1
+
+df_pca_clean <- df_pca[complete.cases(df_pca[, outcome_cols]), ]
+
+# Perform PCA on the first 8 columns
+pca_result <- prcomp(df_pca_clean[outcome_cols], center = TRUE, scale. = TRUE)
+
+# Extract the first principal components
+df_pca_clean$PC1 = pca_result$x[, 1]
+
+# Variance explained by PC1 (%)
+pc1_var = round(summary(pca_result)$importance[2,1], 2) * 100
+
+
+## SCREE PLOT
+# Proportion of variance explained
+variance_explained <- (pca_result$sdev^2) / sum(pca_result$sdev^2)
+
+# Cumulative variance explained
+cumulative_variance <- cumsum(variance_explained)
+
+# Create a data frame for plotting
+plot_data <- data.frame(
+  Component = 1:length(variance_explained),
+  VarianceExplained = variance_explained
+)
+
+# # Scree plot
+# ggplot(plot_data, aes(x = Component, y = VarianceExplained)) +
+#   geom_point(size = 3) +
+#   geom_line(aes(group = 1)) +
+#   labs(title = "Scree Plot", 
+#        x = "Principal Component", 
+#        y = "Proportion of Variance Explained") +
+#   theme_minimal()
+
+## SCREE PLOT CUMULATIVE
+# Proportion of variance explained
+variance_explained <- (pca_result$sdev^2) / sum(pca_result$sdev^2)
+
+# Cumulative variance explained
+cumulative_variance <- cumsum(variance_explained)
+
+# Create a data frame for plotting and add a point at (0,0)
+plot_data <- data.frame(
+  Component = 0:length(cumulative_variance),
+  CumulativeVariance = c(0, cumulative_variance)
+)
+
+# Scree plot
+ggplot(plot_data, aes(x = Component, y = CumulativeVariance)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = 1)) +
+  expand_limits(y = c(0, 1)) +  # Ensure y-axis starts at 0 and ends at 1
+  labs(title = "Scree Plot of Cumulative Variance Explained", 
+       x = "Principal Component", 
+       y = "Cumulative Variance Explained") +
+  theme_minimal()
+```
+
+The first component successfully accounts for over half (`r pc1_var`%) of the total variance of the outcome variables. Given that this single components seemed like a meaningful combination of our eight outcome variables we looked at the correlations between this first component and our moderator variables and weighted Intention-Behavior gap measure.
+
+```{r pca-outcomes-moderators-plot, echo=FALSE, message=FALSE, warning=FALSE}
+library(broom)
+df_plot = df_pca_clean[c(predict_cols, 'PC1')]
+
+# Rename columns for clarity
+df_plot_rename <- df_plot %>%
+  rename(
+    Conscientiousness = con_hex_score,
+    `Social desirability` = social_des_score,
+    Ambition = ambition_score,
+    `Self-control` = brief_self_control_score,
+    `Sensation-seeking` = bsss_overall,
+    `Future-perspective` = future_time_perspective_score,
+    Grit = grit_scale_score,
+    `Work ethic` = secular_measure_work_ethic_score,
+    `Intention-behavior gap` = model2_gap
+  )
+
+
+# Convert to long format
+df_long <- df_plot_rename %>%
+  pivot_longer(cols = -PC1, names_to = "variable", values_to = "value")
+
+# Compute correlation and p-value for each variable
+cor_data <- df_long %>%
+  group_by(variable) %>%
+  do(tidy(cor.test(.$PC1, .$value))) %>%
+  mutate(label = sprintf("r = %.2f\np = %.3f", estimate, p.value))
+
+# Plot
+ggplot(df_long, aes(x = value, y = PC1)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_label(data = cor_data, aes(label = label, x = Inf, y = -Inf), 
+             hjust = "right", vjust = "bottom", inherit.aes = FALSE) +
+  facet_wrap(~variable, scales = "free") +
+  theme_minimal()
+```
+
+```{r pc1-measures-corr ICCs, echo=FALSE, message=FALSE}
+# Intention Behavior Gap
+pc1_ibg_corTest = cor.test(df_plot_rename$PC1, df_plot_rename$`Intention-behavior gap`)
+pc1_ibg_cor = round(pc1_ibg_corTest$estimate, 2)
+pc1_ibg_df = pc1_ibg_corTest$df
+pc1_ibg_95l = round(pc1_ibg_corTest$conf.int[1], 2)
+pc1_ibg_95u = round(pc1_ibg_corTest$conf.int[2], 2)
+
+# Self Control
+pc1_sc_corTest = cor.test(df_plot_rename$PC1, df_plot_rename$`Self-control`)
+pc1_sc_95l = round(pc1_sc_corTest$conf.int[1], 2)
+pc1_sc_95u = round(pc1_sc_corTest$conf.int[2], 2)
+
+# Grit
+pc1_g_corTest = cor.test(df_plot_rename$PC1, df_plot_rename$Grit)
+pc1_g_95l = round(pc1_g_corTest$conf.int[1], 2)
+pc1_g_95u = round(pc1_g_corTest$conf.int[2], 2)
+
+# Social Desirability
+pc1_sd_corTest = cor.test(df_plot_rename$PC1, df_plot_rename$`Social desirability`)
+pc1_sd_95l = round(pc1_sd_corTest$conf.int[1], 2)
+pc1_sd_95u = round(pc1_sd_corTest$conf.int[2], 2)
+
+```
+
+The strongest correlation was between the well-being outcomes' first principle component and the weighted Intention-Behavior gap measure (r(`r pc1_ibg_df`) = `r pc1_ibg_cor`, 95% CI [`r pc1_ibg_95l`, `r pc1_ibg_95u`])). However, it was similar in magnitude and had an overlapping 95% confidence interval, in absolute terms, with self-control (95% CI [`r pc1_sc_95l`, `r pc1_sc_95u`]), grit (95% CI [`r pc1_g_95l`, `r pc1_g_95u`]) and social desirability (95% CI [`r pc1_sd_95l`, `r pc1_sd_95u`], all $p$s $< .001$). We also calculated the best fitting model (using 10-fold cross validation) of the well-being outcomes' first principle component which again found the Intention-Behavior gap measure and self-control to have strong effects ($|\beta| \geq 0.3$) on well-being with moderate effects ($0.1 \leq |\beta| < 0.3$) of conscientiousness, social desirability, work ethic and future time perspective measures. To assess the potential for multicollinearity among the predictor variables, variance inflation factors (VIFs) were computed. All VIF values were below the commonly used threshold of 5 (all $< 1.81$ ), suggesting that multicollinearity is not a concern in the current model. Interestingly grit, which correlated strongly on its own with the outcomes' first principle component did not have a significant unique contribution to the final model.
+
+
+```{r pca-outcomes-moderators-model, echo=FALSE, message=FALSE, warning=FALSE}
+data = data.frame(scale(df_plot))
+
+# Store all results
+results <- data.frame(
+  RMSE = numeric(0),
+  DF = numeric(0),
+  R_2 = numeric(0),
+  setNames(lapply(predict_cols, function(x) numeric(0)), predict_cols)  # Columns for each predictor
+)
+
+data = na.omit(data)
+
+outcome = 'PC1'
+ 
+# for each outcome, use regsubsets to find the best models
+best_subsets <- regsubsets(as.formula(paste(outcome, "~ .")), data = data, nvmax = ncol(data) - 1)
+
+# Extract the best models based on coefficients
+best_models <- lapply(1:(ncol(data) - 1), function(num_predictors) {
+  coefs <- coef(best_subsets, id = num_predictors)
+  predictors <- names(coefs)[-1]  # exclude intercept
+  formula_str <- paste(outcome, "~", paste(predictors, collapse = " + "))
+  return(as.formula(formula_str))
+})
+
+# Set seed  
+set.seed(42)
+# Iterate over best models
+for (formula_obj in best_models) {
+  
+  # 10-fold cross-validation
+  ctrl <- trainControl(method = "cv", number = 10, savePredictions = TRUE)
+  fit <- train(formula_obj, data = data, method = "lm", trControl = ctrl, metric = "RMSE")
+  
+  
+  # Extracting the coefficients from the final linear model
+  coefficients <- fit$finalModel$coefficients
+  
+  # Storing results
+  temp_df <- data.frame(
+    RMSE = fit$results$RMSE,
+    DF = df.residual(fit$finalModel),
+    R_2 = with(fit$finalModel, summary.lm(fit$finalModel)$r.squared),
+    matrix(NA, ncol = length(predict_cols), nrow = 1, dimnames = list(NULL, predict_cols))
+  )
+  
+  # Fill in the coefficients for the predictors in this model
+  temp_df[1, names(coefficients)] <- coefficients
+  
+  # Add to the results data frames=
+  results <- rbind(results, temp_df)
+}
+
+# Rename columns for clarity
+results <- results %>%
+  rename(
+    Conscientiousness = con_hex_score,
+    `Social desirability` = social_des_score,
+    Ambition = ambition_score,
+    `Self-control` = brief_self_control_score,
+    `Sensation-seeking` = bsss_overall,
+    `Future-perspective` = future_time_perspective_score,
+    Grit = grit_scale_score,
+    `Work ethic` = secular_measure_work_ethic_score,
+    `Intention-behavior gap` = model2_gap
+  )
+
+# Select best models by lowest RMSE (1 for each iteration)
+best_fits = results %>%
+  filter(RMSE == min(RMSE)) # %>%
+  #select(-`(Intercept)`) # remove intercept column
+
+# Extract values from the row for columns 3 to 12 and compute order
+order_indices <- order(unlist(abs(best_fits[1, 4:12])), decreasing = TRUE)
+pc_fit = best_fits[, c(1:3, (order_indices + 3))]
+
+# Create table
+outcome_fits_table = knitr::kable(
+  pc_fit,
+  format = "html",
+  table.attr = "class='table'",
+  booktabs = TRUE,
+  escape = FALSE,
+  caption = "Best model fit to outcome measures first principal component (standardized beta weights)"
+  )
+
+kable_styling(outcome_fits_table,
+              full_width = TRUE,
+              bootstrap_options = c("striped", "condensed"))
+
+# Test VIF
+library(car)
+
+m = lm(PC1 ~ model2_gap + brief_self_control_score + con_hex_score + social_des_score + secular_measure_work_ethic_score + future_time_perspective_score, data = data)
+vif_m = vif(m)
+```
+
+# 5 Exploratory
+## 5.1 Exploratory Factor Analysis
+
+### 5.1.1 Goal Domain Structure
+Given that we have people reporting the specific life domains in which they have goals we can look to see whether there might be interesting structure in the data where certain goal domains might group together. The groupings could suggest that a set of domains have common characteristics. For example, if a subject has a goal in domain 'A', will they be likely to also have a goal in domain 'B'. To do this we create a correlation table of bi-serial correlations between each pair of goal domains. We can then use hierarchical agglomerative clustering to create clusters.
+
+```{r correlation-goal-domains-goal, echo=FALSE, message=FALSE, warning=FALSE}
+# If you have a goal in domain A do you tend to have a goal in domain B?
+library(corrplot)
+library(factoextra)
+library(NbClust)
+library(cluster)
+library(dendextend)
+
+#------#
+# Data #
+#------#
+
+# Select domain goal responses
+domain_goals = df %>%
+  dplyr::select(starts_with('ib_domain_goal')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Remove "ib_domain_goal_" from the column names
+names(domain_goals) <- sub("^ib_domain_goal_", "", names(domain_goals))
+
+# Remove rows that have only NA values
+domain_goals <- domain_goals[apply(domain_goals, 1, function(row) any(!is.na(row))), ]
+
+# Scale
+# Not necessary for binary variable
+
+# Create correlation matrix
+cor_matrix <- cor(domain_goals, use = "pairwise.complete.obs")
+
+# Compute the distance matrix
+dist_matrix <- as.dist(1 - abs(cor_matrix))
+
+# Cluster
+hc = hclust(dist_matrix)
+
+#--------------#
+# Correlations #
+#--------------#
+plot_cor = cor_matrix
+diag(plot_cor) <- 0
+
+# Sig test
+res1 <- cor.mtest(domain_goals, conf.level = .95)
+
+# Plot matrix
+corrplot(plot_cor, order = 'hclust', tl.col = 'black', diag = F, p.mat = res1$p, insig = 'blank', cl.ratio = 0.2,  col.lim=c(-0.6, 0.6), is.corr = F, addrect = 8, tl.cex = .8, col = COL2('RdYlBu'))
+
+#-------------#
+# Dendrograms #
+#-------------#
+
+df_labels <- data.frame(
+  x = c(1.5, 4.5, 9, 15, 19.5, 23, 28, 32.5),
+  y = c(.1, .2, .1, .2, .1, .2, .1, .2),
+  text = c("active leisure", "passive leisure", "growth", "self admin", "health", "relationships", "future", "if there's time")
+)
+
+fviz_dend(hc, k = 8,                 # Cut in eight groups
+          cex = 0.6,                 # label size
+          #horiz = TRUE,
+          #k_colors = c("#ff6961", "#ffb480", "#f8f38d", "#42d6a4", "#08cad1", "#59adf6", "#9d94ff", "#c780e8"),
+          k_colors = c("lancet"),
+          rect = TRUE,
+          rect_border = "lancet", 
+          rect_fill = TRUE,
+          lower_rect = 0,
+          type = 'rectangle',
+          color_labels_by_k = TRUE,  # color labels by groups
+          ggtheme = theme_dendro()     # Change theme
+          ) + 
+  scale_y_continuous(limits = c(-.43, 1)) +
+  geom_label(aes(x=df_labels$x, y=df_labels$y, label=df_labels$text), vjust=0.5, size = 3, label.padding = unit(0.25, "lines")) 
+  
+
+fviz_dend(hc, k = 8,                 # Cut in eight groups
+          cex = .8,                 # label size
+          #horiz = TRUE,
+          #k_colors = c("#ff6961", "#ffb480", "#f8f38d", "#42d6a4", "#08cad1", "#59adf6", "#9d94ff", "#c780e8"),
+          k_colors = c("lancet"),
+          rect = TRUE,
+          rect_border = "lancet", 
+          rect_fill = TRUE,
+          lower_rect = 0,
+          type = 'phylogenic',
+          color_labels_by_k = TRUE,  # color labels by groups
+          ggtheme = theme_dendro()     # Change theme
+          ) +
+  labs(title = "Unrooted Dendrogram")
+
+# assign cluster to domain 
+clust = cutree(hc, k = 8)
+# 
+# # visualize
+# fviz_cluster(list(data = cor_matrix, cluster = clust))  ## from ‘factoextra’ package 
+
+#------------#
+# Clustering #
+#------------#
+
+# set.seed(42)
+# # Gap Stat
+# gap.stat <- clusGap(domain_goals, FUNcluster = kmeans, K.max = 15, verbose=FALSE)
+# fviz_gap_stat(gap.stat)
+
+# Test for optimal number of clusters for domain correlations
+# Elbow method
+fviz_nbclust(cor_matrix, kmeans, method = "wss") +
+  labs(subtitle = "Elbow method")
+
+# Silhouette method
+fviz_nbclust(cor_matrix, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+# 
+# # NbClust - K-means
+# nbClust = NbClust(data = domain_goals, min.nc = 2, max.nc = 15, method = 'kmeans')
+# nbClust = as.data.frame(nbClust$Best.nc)
+# 
+# # Plot Hist
+# # Convert the first row to a vector
+# row_values <- unlist(nbClust[1, ])
+# 
+# # Plot
+# ggplot(data.frame(Value=row_values), aes(x=Value)) +
+#   geom_histogram(binwidth=1, color="black", fill="lightblue", position=position_dodge()) +
+#   stat_count(aes(label=after_stat(count)), geom="text", vjust=-0.5) +
+#   labs(x = "Clusters", y = "Frequency", title = "NbClust w/ kmeans method") +
+#   scale_x_continuous(breaks = seq(min(row_values), max(row_values), by=1)) +
+#   theme_minimal()
+# 
+# # NbClust - ward D
+# nbClust = NbClust(data = domain_goals, min.nc = 2, max.nc = 15, method = 'ward.D')
+# nbClust = as.data.frame(nbClust$Best.nc)
+# 
+# # Plot Hist
+# # Convert the first row to a vector
+# row_values <- unlist(nbClust[1, ])
+# 
+# # Plot
+# ggplot(data.frame(Value=row_values), aes(x=Value)) +
+#   geom_histogram(binwidth=1, color="black", fill="lightblue", position=position_dodge()) +
+#   stat_count(aes(label=after_stat(count)), geom="text", vjust=-0.5) +
+#   labs(x = "Clusters", y = "Frequency", title = "NbClust w/ ward.D method") +
+#   scale_x_continuous(breaks = seq(min(row_values), max(row_values), by=1)) +
+#   theme_minimal()
+# 
+# 
+# ####
+# 
+# # Compute distance and perform hierarchical clustering
+# dist_mat <- dist(domain_goals)
+# hclust_result <- hclust(dist_mat)
+# 
+# # Cut dendrogram to get 3 clusters
+# clusters <- cutree(hclust_result, k=8)
+# 
+# # Perform PCA
+# pca_result <- prcomp(domain_goals)
+# 
+# data = as.data.frame(pca_result$x[,1:2])
+# data$clusters = clusters
+# data$clusters = as.factor(data$clusters)
+# 
+# ggplot(data, aes(x=PC1, y=PC2)) + 
+#   geom_point(aes(color=clusters)) +  # coloring by PC1 value just as an example
+#   theme_minimal() +
+#   labs(title="PCA Plot", x="First Principal Component", y="Second Principal Component")
+# 
+# fviz_pca_ind(pca_result,
+#              label = "none", # hide individual labels
+#              habillage = clusters, # color by groups
+#              #palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+#              addEllipses = TRUE # Concentration ellipses
+#              )
+# 
+# fviz_pca_ind(pca_result,
+#              label = "none", # hide individual labels
+#              habillage = clusters, # color by groups
+#              #palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+#              addEllipses = TRUE # Concentration ellipses
+#              )
+```
+
+And what if we cluster people by the goals they have? Here we use multiple correspondence analysis since we are dealing with categorical data (had a goal in a domain or did not).
+
+```{r cluster-subjects-goal-domains, echo=FALSE, message=FALSE, warning=FALSE}
+# If you have a goal in domain A do you tend to have a goal in domain B?
+
+library(FactoMineR)
+
+#------#
+# Data #
+#------#
+
+# Select domain goal responses
+domain_goals = df %>%
+  dplyr::select(starts_with('ib_domain_goal')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Remove "ib_domain_goal_" from the column names
+names(domain_goals) <- sub("^ib_domain_goal_", "", names(domain_goals))
+
+# Remove rows that have only NA values
+domain_goals <- domain_goals[apply(domain_goals, 1, function(row) any(!is.na(row))), ]
+
+data = as.data.frame(lapply(domain_goals, as.factor))
+  
+res.mca <- MCA(data, graph = F)
+
+fviz_screeplot(res.mca, addlabels = TRUE, ylim = c(0, 28))
+
+fviz_mca_var(res.mca, col.var = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE, # Avoid text overlapping
+             ggtheme = theme_minimal())
+
+fviz_mca_biplot(res.mca, col.var = "cos2",
+                gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                repel = TRUE, # Avoid text overlapping (slow if many point)
+                ggtheme = theme_minimal())
+
+fviz_cos2(res.mca, choice = "var", axes = 1:2)
+
+# Contributions of rows to dimension 1
+fviz_contrib(res.mca, choice = "var", axes = 1, top = 15)
+# Contributions of rows to dimension 2
+fviz_contrib(res.mca, choice = "var", axes = 2, top = 15)
+
+```
+
+### 5.1.1 Goal Domain Importance
+
+Gap magnitude correlation between domains?
+- if you have a large gap in domain A do you tend to have a large gap in domain B?
+
+Structure of goal importance
+```{r correlation-goal-domains-import, echo=FALSE, message=FALSE, warning=FALSE}
+# If you have a goal in domain A do you tend to have a goal in domain B?
+library(corrplot)
+library(factoextra)
+library(NbClust)
+library(cluster)
+library(dendextend)
+
+#------#
+# Data #
+#------#
+
+# Select domain goal responses
+domain_goals = df %>%
+  dplyr::select(starts_with('ib_domain_import')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Remove "ib_domain_import_" from the column names
+names(domain_goals) <- sub("^ib_domain_import_", "", names(domain_goals))
+
+# Remove rows that have only NA values
+domain_goals <- domain_goals[apply(domain_goals, 1, function(row) any(!is.na(row))), ]
+
+# Replace remaining NAs with 0s
+domain_goals[is.na(domain_goals)] = 0
+
+# Scale
+domain_goals = scale(domain_goals)
+
+# Create correlation matrix
+cor_matrix <- cor(domain_goals, use = "pairwise.complete.obs")
+
+# Compute the distance matrix
+dist_matrix <- as.dist(1 - abs(cor_matrix))
+
+# Cluster
+hc = hclust(dist_matrix)
+
+#--------------#
+# Correlations #
+#--------------#
+plot_cor = cor_matrix
+diag(plot_cor) <- .65
+
+# Sig test
+res1 <- cor.mtest(domain_goals, conf.level = .95)
+
+# Plot matrix
+corrplot(plot_cor, order = 'hclust', tl.col = 'black', diag = F, p.mat = res1$p, insig = 'blank', cl.ratio = 0.2,  col.lim=c(-0.65, 0.65), is.corr = F, addrect = 9, tl.cex = .8, col = COL2('RdYlBu'))
+
+#-------------#
+# Dendrograms #
+#-------------#
+
+df_labels <- data.frame(
+  x = c(2, 5, 9, 14.5, 20.5, 26.5, 32),
+  y = c(.1, .2, .1, .2, .1, .2, .1),
+  text = c("personal\n growth", "scheduling", "community", "life admin", "future", "relationships", "leisure")
+)
+
+fviz_dend(hc, k = 9,                 # Cut in eight groups
+          cex = 0.6,                 # label size
+          #horiz = TRUE,
+          #k_colors = c("#ff6961", "#ffb480", "#f8f38d", "#42d6a4", "#08cad1", "#59adf6", "#9d94ff", "#c780e8"),
+          k_colors = c("lancet"),
+          rect = TRUE,
+          rect_border = "lancet", 
+          rect_fill = TRUE,
+          lower_rect = 0,
+          type = 'rectangle',
+          color_labels_by_k = TRUE,  # color labels by groups
+          ggtheme = theme_dendro()     # Change theme
+          ) + 
+  scale_y_continuous(limits = c(-.43, 1)) +
+  geom_label(aes(x=df_labels$x, y=df_labels$y, label=df_labels$text), vjust=0.5, size = 3, label.padding = unit(0.25, "lines")) 
+  
+
+fviz_dend(hc, k = 8,                 # Cut in eight groups
+          cex = .8,                 # label size
+          #horiz = TRUE,
+          #k_colors = c("#ff6961", "#ffb480", "#f8f38d", "#42d6a4", "#08cad1", "#59adf6", "#9d94ff", "#c780e8"),
+          k_colors = c("lancet"),
+          rect = TRUE,
+          rect_border = "lancet", 
+          rect_fill = TRUE,
+          lower_rect = 0,
+          type = 'phylogenic',
+          color_labels_by_k = TRUE,  # color labels by groups
+          ggtheme = theme_dendro()     # Change theme
+          ) +
+  labs(title = "Unrooted Dendrogram")
+
+#------------#
+# Clustering #
+#------------#
+
+set.seed(42)
+# Gap Stat
+gap.stat <- clusGap(domain_goals, FUNcluster = kmeans, K.max = 15)
+fviz_gap_stat(gap.stat)
+
+# Test for optimal number of clusters for domain correlations
+# Elbow method
+fviz_nbclust(cor_matrix, kmeans, method = "wss") +
+  labs(subtitle = "Elbow method")
+
+# Silhouette method
+fviz_nbclust(cor_matrix, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+# 
+# # NbClust - K-means
+# nbClust = NbClust(data = domain_goals, min.nc = 2, max.nc = 15, method = 'kmeans')
+# nbClust = as.data.frame(nbClust$Best.nc)
+# 
+# # Plot Hist
+# # Convert the first row to a vector
+# row_values <- unlist(nbClust[1, ])
+# 
+# # Plot
+# ggplot(data.frame(Value=row_values), aes(x=Value)) +
+#   geom_histogram(binwidth=1, color="black", fill="lightblue", position=position_dodge()) +
+#   stat_count(aes(label=after_stat(count)), geom="text", vjust=-0.5) +
+#   labs(x = "Clusters", y = "Frequency", title = "NbClust w/ kmeans method") +
+#   scale_x_continuous(breaks = seq(min(row_values), max(row_values), by=1)) +
+#   theme_minimal()
+# 
+# # NbClust - ward D
+# nbClust = NbClust(data = domain_goals, min.nc = 2, max.nc = 15, method = 'ward.D')
+# nbClust = as.data.frame(nbClust$Best.nc)
+# 
+# # Plot Hist
+# # Convert the first row to a vector
+# row_values <- unlist(nbClust[1, ])
+# 
+# # Plot
+# ggplot(data.frame(Value=row_values), aes(x=Value)) +
+#   geom_histogram(binwidth=1, color="black", fill="lightblue", position=position_dodge()) +
+#   stat_count(aes(label=after_stat(count)), geom="text", vjust=-0.5) +
+#   labs(x = "Clusters", y = "Frequency", title = "NbClust w/ ward.D method") +
+#   scale_x_continuous(breaks = seq(min(row_values), max(row_values), by=1)) +
+#   theme_minimal()
+
+# Plot clusters 6
+final <- kmeans(cor_matrix, 6, nstart = 30)
+fviz_cluster(final, data = cor_matrix) + theme_minimal() + ggtitle("k = 6")
+
+# Plot clusters 2
+final <- kmeans(dist_matrix, 2, nstart = 30)
+fviz_cluster(final, data = dist_matrix) + theme_minimal() + ggtitle("k = 2")
+```
+
+Structure of goal success
+```{r correlation-goal-domains-success, echo=FALSE, message=FALSE, warning=FALSE}
+# If you have a goal in domain A do you tend to have a goal in domain B?
+library(corrplot)
+library(factoextra)
+library(NbClust)
+library(cluster)
+library(dendextend)
+
+#------#
+# Data #
+#------#
+
+# Select domain goal responses
+domain_goals = df %>%
+  dplyr::select(starts_with('ib_domain_success')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Remove "ib_domain_success_" from the column names
+names(domain_goals) <- sub("^ib_domain_success_", "", names(domain_goals))
+
+# Remove rows that have only NA values
+domain_goals <- domain_goals[apply(domain_goals, 1, function(row) any(!is.na(row))), ]
+
+# Scale
+domain_goals = scale(domain_goals)
+
+# Create correlation matrix
+cor_matrix <- cor(domain_goals, use = "pairwise.complete.obs")
+
+# Compute the distance matrix
+dist_matrix <- as.dist(1 - abs(cor_matrix))
+
+# Cluster
+hc = hclust(dist_matrix)
+
+#--------------#
+# Correlations #
+#--------------#
+plot_cor = cor_matrix
+diag(plot_cor) <- 0
+
+# Sig test
+res1 <- cor.mtest(domain_goals, conf.level = .95)
+
+# Plot matrix
+corrplot(plot_cor, order = 'hclust', tl.col = 'black', diag = F, p.mat = res1$p, insig = 'blank', cl.ratio = 0.2,  col.lim=c(-0.65, 0.65), is.corr = F, addrect = 9, tl.cex = .8, col = COL2('RdYlBu'))
+
+#-------------#
+# Dendrograms #
+#-------------#
+
+df_labels <- data.frame(
+  x = c(2, 5, 9, 14.5, 20.5, 26.5, 32),
+  y = c(.1, .2, .1, .2, .1, .2, .1),
+  text = c("personal\n growth", "scheduling", "community", "life admin", "future", "relationships", "leisure")
+)
+
+fviz_dend(hc, k = 9,                 # Cut in eight groups
+          cex = 0.6,                 # label size
+          #horiz = TRUE,
+          #k_colors = c("#ff6961", "#ffb480", "#f8f38d", "#42d6a4", "#08cad1", "#59adf6", "#9d94ff", "#c780e8"),
+          k_colors = c("lancet"),
+          rect = TRUE,
+          rect_border = "lancet", 
+          rect_fill = TRUE,
+          lower_rect = 0,
+          type = 'rectangle',
+          color_labels_by_k = TRUE,  # color labels by groups
+          ggtheme = theme_dendro()     # Change theme
+          ) + 
+  scale_y_continuous(limits = c(-.43, 1)) +
+  geom_label(aes(x=df_labels$x, y=df_labels$y, label=df_labels$text), vjust=0.5, size = 3, label.padding = unit(0.25, "lines")) 
+  
+
+fviz_dend(hc, k = 8,                 # Cut in eight groups
+          cex = .8,                 # label size
+          #horiz = TRUE,
+          #k_colors = c("#ff6961", "#ffb480", "#f8f38d", "#42d6a4", "#08cad1", "#59adf6", "#9d94ff", "#c780e8"),
+          k_colors = c("lancet"),
+          rect = TRUE,
+          rect_border = "lancet", 
+          rect_fill = TRUE,
+          lower_rect = 0,
+          type = 'phylogenic',
+          color_labels_by_k = TRUE,  # color labels by groups
+          ggtheme = theme_dendro()     # Change theme
+          ) +
+  labs(title = "Unrooted Dendrogram")
+
+#------------#
+# Clustering #
+#------------#
+
+set.seed(42)
+# Gap Stat
+gap.stat <- clusGap(cor_matrix, FUNcluster = kmeans, K.max = 15)
+fviz_gap_stat(gap.stat)
+
+# Test for optimal number of clusters for domain correlations
+# Elbow method
+fviz_nbclust(cor_matrix, kmeans, method = "wss") +
+  labs(subtitle = "Elbow method")
+
+# Silhouette method
+fviz_nbclust(cor_matrix, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method")
+# 
+# NbClust - K-means
+nbClust = NbClust(data = domain_goals, min.nc = 2, max.nc = 15, method = 'kmeans')
+nbClust = as.data.frame(nbClust$Best.nc)
+
+# Plot Hist
+# Convert the first row to a vector
+row_values <- unlist(nbClust[1, ])
+
+# Plot
+ggplot(data.frame(Value=row_values), aes(x=Value)) +
+  geom_histogram(binwidth=1, color="black", fill="lightblue", position=position_dodge()) +
+  stat_count(aes(label=after_stat(count)), geom="text", vjust=-0.5) +
+  labs(x = "Clusters", y = "Frequency", title = "NbClust w/ kmeans method") +
+  scale_x_continuous(breaks = seq(min(row_values), max(row_values), by=1)) +
+  theme_minimal()
+# 
+# # NbClust - ward D
+# nbClust = NbClust(data = domain_goals, min.nc = 2, max.nc = 15, method = 'ward.D')
+# nbClust = as.data.frame(nbClust$Best.nc)
+# 
+# # Plot Hist
+# # Convert the first row to a vector
+# row_values <- unlist(nbClust[1, ])
+# 
+# # Plot
+# ggplot(data.frame(Value=row_values), aes(x=Value)) +
+#   geom_histogram(binwidth=1, color="black", fill="lightblue", position=position_dodge()) +
+#   stat_count(aes(label=after_stat(count)), geom="text", vjust=-0.5) +
+#   labs(x = "Clusters", y = "Frequency", title = "NbClust w/ ward.D method") +
+#   scale_x_continuous(breaks = seq(min(row_values), max(row_values), by=1)) +
+#   theme_minimal()
+
+# Plot clusters 6
+final <- kmeans(cor_matrix, 6, nstart = 30)
+fviz_cluster(final, data = cor_matrix) + theme_minimal() + ggtitle("k = 6")
+
+# Plot clusters 2
+final <- kmeans(dist_matrix, 2, nstart = 30)
+fviz_cluster(final, data = dist_matrix) + theme_minimal() + ggtitle("k = 2")
+```
+
+Correlation between those factors and well-being
+
+Cluster subjects - grade differences? BMI?
+
+```{r subject-clustering, warning=FALSE, message=FALSE, echo=FALSE}
+library(GGally)
+
+# Select domain goal responses
+domain_import = df %>%
+  dplyr::select(starts_with('ib_domain_import')) %>%
+  mutate(across(where(is.character), as.numeric))
+
+# Remove "ib_domain_goal_" from the column names
+names(domain_import) <- sub("^ib_domain_import_", "", names(domain_import))
+
+# Remove rows that have only NA values
+domain_import <- domain_import[apply(domain_import, 1, function(row) any(!is.na(row))), ]
+
+# Replace no goal (NA) with zero
+domain_import[is.na(domain_import)] <- 0
+
+# Scale
+domain_import = as.data.frame(scale(domain_import))
+
+data = domain_import
+
+# # Optimal clusters for k-means
+# NbClust(data = data, diss = NULL, distance = "euclidean",
+#         min.nc = 2, max.nc = 15, method = 'kmeans')
+
+final <- kmeans(data, 3, nstart = 30)
+data$cluster <- final$cluster
+data$cluster <- as.character(data$cluster)
+
+# Parallel coordiante plots allow us to put each feature on seperate column and lines connecting each column
+ggparcoord(data = data, columns = 1:20, groupColumn = "cluster", alphaLines = 0.4, title = "Parallel Coordinate Plot for the Mammals Milk Data", scale = "globalminmax", showPoints = F) + theme_minimal() + theme(axis.text.x = element_text(angle = 90))
+
+```
+
+## 5.2 Gap Prediction
+
+### Goal Setting Style
+How does goal setting style correspond with gap?
+
+### Number of goals
+```{r goalCount-gap-correlation, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df, contains('ib_domain_success'))
+
+# Calculate the number of non-NA domain goal values for the domains
+non_na_counts <- data.frame(counts = rowSums(!is.na(x)))
+# Add gap
+non_na_counts$gap = df$domain_gap
+# Remove rows with missing data
+non_na_counts = non_na_counts[non_na_counts$counts>0,]
+
+# Calculate correlation coefficient and p-value
+cor_result <- cor.test(non_na_counts$counts, non_na_counts$gap)
+
+#plot
+ggplot(non_na_counts, aes(x = counts, y = gap)) +
+  geom_point(size = 3, color = "skyblue3") +
+  geom_smooth(method = "lm", se = FALSE, color = "red3", size = 1) +
+  theme_minimal() + 
+  geom_label(aes(x = max(counts), y = max(gap), label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))),
+            hjust = 1, vjust = 1, color = "black")
+
+```
+### Goal importance
+Does having on average more important goals mean you are more likely to accomplish them?
+
+What if you have both importance and total number of goals as predictors? 
+
+What about number of goals that are of "top" (7) importance?
+
+## Domain Importance for Outcomes
+Using the first principle component of our eight well-being outcome measures, do certain goal domains have a higher association with well-being than others?
+
+## 5.2 Goal Conflict
+- Average conflict score between subjects goals
+  - does average level predict how well they accomplish their goals?
+  - does it correlate with their ability to prioritize goals? focus on a single goal?
+  - good at focusing on a single goal maybe goal conflict does not matter? if goals in conflict and you can't focus on a single goal then your gap could be larger...
+
+- Average conflict score for domain
+
+- Matrix of goal conflict for each pairing
+  - which are most aligned vs. most in conflict
+  
+
+## 5.X Trait vs State Stability
+
+## 5.X Gender Differences
+Also just out of curiousity I was curious which goals females and males differed on the most
+
+``` {r gendered_goals, warning=FALSE, message=FALSE, echo=FALSE}
+x = dplyr::select(df, contains('ib_domain_success'), gender)
+# Count the non NA values in each column
+
+non_na_counts <- colSums(!is.na(x[x$gender == '1',]))
+dom_count_m <- data.frame(Domain = names(non_na_counts), Frequency = non_na_counts)
+
+non_na_counts <- colSums(!is.na(x[x$gender == '2',]))
+dom_count_f <- data.frame(Domain = names(non_na_counts), Frequency = non_na_counts)
+
+# clean up names
+specified_string = 'ib_domain_success_'
+dom_count_f$Domain = sub(paste0("^", specified_string), "", dom_count_f$Domain)
+dom_count_m$Domain = sub(paste0("^", specified_string), "", dom_count_m$Domain)
+
+# convert to percentage
+dom_count_f$Frequency = (dom_count_f$Frequency / dom_count_f[dom_count_f$Domain == 'gender',]$Frequency) * 100
+dom_count_m$Frequency = (dom_count_m$Frequency / dom_count_m[dom_count_m$Domain == 'gender',]$Frequency) * 100
+
+# add gender column
+dom_count_f$gender = 'Female'
+dom_count_m$gender = 'Male'
+
+# remove gender row
+dom_count_f = dom_count_f[dom_count_f$Domain!='gender',]
+dom_count_m = dom_count_m[dom_count_m$Domain!='gender',]
+
+# factorize
+dom_count_f$Domain = as.factor(dom_count_f$Domain)
+dom_count_f$gender = as.factor(dom_count_f$gender)
+dom_count_m$Domain = as.factor(dom_count_m$Domain)
+dom_count_m$gender = as.factor(dom_count_m$gender)
+
+# diff
+dom_count_m$diff = dom_count_m$Frequency - dom_count_f$Frequency
+dom_count_f$diff = dom_count_m$Frequency - dom_count_f$Frequency
+# reorder
+dom_count_m = dom_count_m[order(dom_count_m$diff), ]
+dom_count_f = dom_count_f[order(dom_count_f$diff), ]
+# factor
+dom_count_m$Domain = factor(dom_count_m$Domain, levels = dom_count_m$Domain)
+dom_count_f$Domain = factor(dom_count_f$Domain, levels = dom_count_m$Domain)
+
+# create single df for plot
+mf = bind_rows(dom_count_f, dom_count_m)
+mf$Domain = as.factor(mf$Domain)
+mf$Domain = factor(mf$Domain, levels = dom_count_m$Domain)
+
+p <- ggplot(mf)+
+  
+ geom_segment(data = dom_count_m,
+              aes(x = Frequency, y = Domain,
+                  yend = dom_count_f$Domain, xend = dom_count_f$Frequency), #use the $ operator to fetch data from our "Females" tibble
+              color = "#aeb6bf",
+              linewidth = 4.5, #Note that I sized the segment to fit the points
+              alpha = .5) +
+  
+  geom_point(aes(x = Frequency, y = Domain, color = gender), size = 4, show.legend = TRUE)+
+  theme_minimal() +
+  ggtitle("Female vs. Male Goal Frequency") +
+  ylab("")
+
+p
+```
+
+
+## 3.3 Correlation between Goal Prioritization and Gap
+```{r goalPriority-gap-correlation, warning=FALSE, message=FALSE, echo=FALSE}
+
+# x = dplyr::select(df, contains('ib_domain_success'))
+# 
+# # Calculate the number of non-NA domain goal values for the domains
+# non_na_counts <- data.frame(counts = rowSums(!is.na(x)))
+# # Add gap
+# non_na_counts$gap = df$domain_gap
+# # Remove rows with missing data
+# non_na_counts = non_na_counts[non_na_counts$counts>0,]
+# 
+# # Calculate correlation coefficient and p-value
+# cor_result <- cor.test(non_na_counts$counts, non_na_counts$gap)
+# 
+# #plot
+# ggplot(non_na_counts, aes(x = counts, y = gap)) +
+#   geom_point(size = 3, color = "skyblue3") +
+#   geom_smooth(method = "lm", se = FALSE, color = "red3", size = 1) +
+#   theme_minimal() + 
+#   geom_text(aes(x = max(counts), y = max(gap), label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))),
+#             hjust = 1, vjust = 1, color = "black")
+
+```
+
+## 3.4 Gap vs. Importance
+```{r gap-v-importance, warning=FALSE, message=FALSE, echo=FALSE}
+library(sjPlot)
+
+
+options(repr.plot.width = 15, repr.plot.height = 10)
+
+### create df with name, count, importance, gap, and internal
+
+## Domain import avg.
+x = dplyr::select(df, contains('ib_domain_import'))
+x <- x %>% mutate_all(as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+
+data <- data.frame(domain = names(means), importance = means)
+# Remove "ib_domain_success_" from the "Name" column
+data$domain <- gsub("ib_domain_import_", "", data$domain)
+
+## Domain gap avg.
+x = dplyr::select(df, contains('ib_domain_success'))
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+means = 100 - means
+data$gap = means
+
+## Domain Internal avg.
+x = dplyr::select(df, contains('ib_domain_internal'))
+x <- x %>%
+  mutate_if(is.character, as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+data$internal = means
+
+## Domain External avg.
+x = dplyr::select(df, contains('ib_domain_external'))
+x <- x %>%
+  mutate_if(is.character, as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+data$external = means
+
+## Domain counts
+x = dplyr::select(df, contains('ib_domain_success'))
+counts = colSums(!is.na(x))
+data$count = counts
+
+p <- ggplot(data, aes(importance, gap, label = domain))
+p + geom_point(aes(colour = internal, size = count)) + 
+geom_text(hjust = 0, nudge_x = 0.045, size=3) +
+labs(color = "Internally Motivated",
+     size = "Frequency"
+    ) +
+scale_colour_gradient(low = "yellow", high = "red", na.value = NA) +
+theme_sjplot() +
+theme(
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 8),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8)
+  )
+
+gap_import_cor = cor.test(data$gap, data$importance)
+gap_internal_cor = cor.test(data$gap, data$internal)
+gap_external_cor = cor.test(data$gap, data$external)
+gap_frequency_cor = cor.test(data$gap, data$count)
+```
+
+Importance does seem to have a strong negative relationship with the gap magnitude (r = `r round(gap_import_cor$estimate, 2)`, df = `r gap_import_cor$parameter`, p = `r round(gap_import_cor$p.value, 5)`).
+
+Internal motivation has a similar, but slightly smaller association with gap magnitude. (r = `r round(gap_internal_cor$estimate, 2)`, df = `r gap_internal_cor$parameter`, p = `r round(gap_internal_cor$p.value, 5)`).
+
+## 8.5 "Other" Goals
+What did people select as goals that weren't explicitly contained in the measure?
+
+## 4 Gap Dimensions
+### 4.1 Goal Specific Dimensions
+
+### 4.2 General Goal Planning Dimensions
+We asked people about some general characteristics about their goal/intention setting process. 
+
+These included:
+- How detailed are your goals?
+- How variable are your goals on a day to day basis?
+- How many goals do you tend to have?
+- How good are you at selecting a specific goal to pursue at any given time?
+- How easy is it for you to focus on one specific goal?
+- Do you tend to plan for contingencies with your goals?
+
+See the plot below to observe how these correlate with the (unweighted) intention behavior gap:
+
+```{r general-goal-style, warning=FALSE, message=FALSE, echo=FALSE}
+data = filter(df, starts_with('plan_'), domain_gap)
+
+data = data %>%
+  mutate_if(is.character, as.numeric)
+
+chart.Correlation(data, histogram = TRUE, pch = 25)
+
+m <- lm(domain_gap ~ plan_goal_select_1 + plan_goal_focus_1 + plan_goalnum_1 +
+          plan_contingencies_1 + plan_variation_1 + plan_detailed_1,
+        data = data)
+summary(m)
+
+```
+### 4.3 General Goal Dimensions
+Includes ambition, pragmatic, variability, and conflict.
+
+# OLD CODE
+
+### 6.1.1 Alternative Calculations of Chronbach's Alpha
+We wanted to check this calculation by applying two different imputation methods and validating them based on a known dataset.
+
+#### 6.1.1.1 Impute based on participant's own values
+
+In this methods we randomly sample (with replacement) from a participant's own values from their selected goal domains.
+
+The idea is that if this is a domain general measure then their own scores in un-selected life domains should be good predictors of what their performane would be IF they actually did have a goal in that domain.
+
+```{r chronbachs alpha impute-sample, echo=FALSE, warning=FALSE, message=FALSE}
+
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows with all na
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+# Iterate through each row and column combination
+for (i in 1:nrow(chron)) {
+  for (j in 1:ncol(chron)) {
+    # Check if cell is missing (NA)
+    if (is.na(chron[i, j])) {
+      # Impute value using sampled score from participant's own data
+      imputed_value <- sample(na.omit(as.numeric(chron[i,])), 1)
+      chron[i, j] <- imputed_value
+    }
+  }
+}
+
+c_alpha = psych::alpha(chron)
+
+# Test this method with known data (self control scale)
+
+```
+
+Using this library internal consistency as measured by Chronbach's Alpha (standardized) was `r round(c_alpha$total$std.alpha, 2)`.
+
+#### 6.1.1.2 Impute based on item average + Participant difference
+In the method we took each participant's average domain gap score and calculated how many standard deviations above or below the population it was. When the participant had a missing value for a given domain, we took the mean and standard deviation of the missing domain and then estimated the participant's score by using the following equation:
+
+$$m_{d} + SD_{p} * SD_{d}$$
+Where $m_{d}$ is the domain mean, $SD+{p}$ is the participant's average gap compared to the population average in terms of standard deviations of the distribution, and $SD_{d}$ is the standard deviation of the missing domain that is to be imputed for the given participant.
+
+
+This is similar to the previous methods but acknowledges that there may be systematic variation in the population level gap based on the domain. For example for this particular sample the average gap for alcohol and drug-related goals was only 30%, whereas the average gap for volunteering related goals was 57%.
+
+```{r chronbachs alpha impute-calculate, echo=FALSE, warning=FALSE, message=FALSE}
+
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows with all na
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+# population gap mean and sd
+gap_mean = mean(rowMeans(chron, na.rm = T))
+gap_sd = sd(rowMeans(chron, na.rm = T))
+
+# Iterate through each row and column combination
+for (i in 1:nrow(chron)) {
+  for (j in 1:ncol(chron)) {
+    # Check if cell is missing (NA)
+    if (is.na(chron[i, j])) {
+      # Impute value using column (domain) mean and participant mean in terms of sds from population mean
+      col_mean = mean(chron[,j][!is.na(chron[,j])])
+      col_sd = sd(chron[,j][!is.na(chron[,j])])
+      sub_mean = mean(chron[i,][!is.na(chron[i,])])
+      sub_sds = (sub_mean - gap_mean)/gap_sd
+      imputed_value <- col_mean + (sub_sds * col_sd)
+      if (imputed_value<0){
+        imputed_value=0
+      }
+      if (imputed_value>100){
+        imputed_value=100
+      }
+      chron[i, j] <- imputed_value
+    }
+  }
+}
+
+c_alpha = psych::alpha(chron)
+
+# Test this method with known data (self control scale)
+
+```
+
+Using this library internal consistency as measured by Chronbach's Alpha (standardized) was `r round(c_alpha$total$std.alpha, 2)`.
+
+```{r imputation-test, echo=FALSE, warning=FALSE, message=FALSE}
+## Import Depression Anxiety Stress Scales-21 and Chernyshenko Conscientiousness Scale's
+# CCS: https://docs.google.com/document/d/1LK9yhlcr5Ux-GHB5-CubNai2Hf3ClJj-vn8WZhxa-9c/edit
+# DASS 21: https://docs.google.com/document/d/1E1LzJPFnKcuyetK2tGgdefJ5cU0s5zURTX679TCR5kc/edit#heading=h.l4lr03cu53fh
+# Brief Self-Control Scale (BSCS): https://docs.google.com/document/d/1OO1XE9ECmowyhXN28sFzT-uRSYrZ3gup9lC72NZJFbM/edit
+
+#------------#
+# Data Munge #
+#------------#
+
+# Import SONA data
+valid = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_1_gap_measure/3_1_1_raw_data/qualtrics/VIB_Gap_Sona_reliabilityValidation.csv')
+valid = valid[valid$Progress=='100',]
+
+## Get CCS data
+ccs = select(valid, starts_with('ccs_'))
+ccs <- as.data.frame(sapply(ccs, as.numeric))
+ccs = ccs[complete.cases((ccs)), ]
+
+# first need to reverse score things...
+possible_endings = c('r_o', 'r_v', 'r_t', 'r_s', 'r_r', 'r_i')
+
+# Find columns that start with the specific string and end with any string in the list
+matching_cols <- names(select(ccs, ends_with(possible_endings)))
+
+# Reverse those columns (5 point likert)
+ccs[, matching_cols] <- 5 - ccs[, matching_cols] + 1
+
+## Get DASS21 (for some reason all NAs??)
+bscs = select(valid, starts_with('bscs_'))
+bscs <- as.data.frame(sapply(bscs, as.numeric))
+bscs = bscs[complete.cases((bscs)), ]
+
+# Find columns that end with 'r'
+matching_cols <- names(select(bscs, ends_with('_r')))
+
+# Reverse those columns (5 point likert)
+bscs[, matching_cols] <- 5 - bscs[, matching_cols] + 1
+
+#------#
+# Test #
+#------#
+
+## CCS
+c_alpha = psych::alpha(ccs, check.keys = FALSE)
+# note that ccs_29r_t was negatively correlated with scale
+# Item: "In my opinion, censorship slows down progress"
+# Also I manually reversed 49 as it seemed like there was an error in the actual file # https://www.dropbox.com/s/4yz4hm5qcapva98/CCS%20subscales%20and%20scoring%20key.pdf?dl=0
+
+# original alpha
+c_alpha$total$std.alpha
+
+# missing values alpha
+
+alpha_mcar = function(data, proportion_to_remove, reps){
+  
+  result_vector = c()
+  
+  for (i in 1:reps){
+
+    # Convert dataframe to a vector
+    data_vector <- unlist(data)
+    
+    # Calculate the number of values to remove
+    num_values_to_remove <- floor(length(data_vector) * proportion_to_remove)
+    
+    # Randomly select the indices of values to remove without replacement
+    indices_to_remove <- sample(length(data_vector), num_values_to_remove, replace = FALSE)
+    
+    # Set the selected values to NA
+    data_vector[indices_to_remove] <- NA
+    
+    # Convert the modified vector back to a dataframe
+    modified_data <- as.data.frame(matrix(data_vector, nrow = nrow(data), ncol = ncol(data), byrow = TRUE))
+    
+    # Assign column names to the modified dataframe
+    colnames(modified_data) <- colnames(data)
+    
+    #---------------#
+    # Impute values #
+    #---------------#
+    for (i in 1:nrow(chron)) {
+      for (j in 1:ncol(chron)) {
+        # Check if cell is missing (NA)
+        if (is.na(chron[i, j])) {
+          # Impute value using sampled score from participant's own data
+          imputed_value <- sample(na.omit(as.numeric(chron[i,])), 1)
+          chron[i, j] <- imputed_value
+        }
+      }
+    }
+        
+    ## Mice
+    # init = mice(dat, maxit=0)
+    # meth = init$method
+    # predM = init$predictorMatrix
+    # 
+    # meth[c("Cholesterol")]="norm" 
+    
+    # Calculate alpha
+    c_alpha = psych::alpha(modified_data)$total$std.alpha
+    result_vector <- c(result_vector, c_alpha)
+  }
+  return(result_vector)
+}
+
+reps = 0
+
+values = seq(from = 0.05, to = 0.5, by = 0.05 )
+
+out <- c()
+for (val in values){
+  print(val)
+  alphas = alpha_mcar(ccs, proportion_to_remove = val, reps = reps)
+  rbind(out, alphas)
+}
+
+psych::alpha(ccs)$total$std.alpha
+## BSCS
+c_alpha = psych::alpha(bscs)
+
+c_alpha$total$std.alpha
+```
+
+### 7.2.2 Concurrent: Averaging Start and End Measurements
+```{r concurrent-validity-table-averaged, echo=FALSE, message=FALSE, warning=FALSE}
+# predicting gap cols
+cor_cols_predict_gap = c('con_hex_score',
+             'food_fruitveg_score',
+             'food_fat_score',
+             'social_des_score',
+             'ambition_score',
+             'brief_self_control_score',
+             'bsss_overall',
+             'future_time_perspective_score',
+             'grit_scale_score',
+             'need_for_cognition_score',
+             'trait_hedonic_capacity_score',
+             
+             'domain_gap',
+             'ParticipantIdentifier'
+)
+
+mean_data <- df[cor_cols_predict_gap] %>%
+  group_by(ParticipantIdentifier) %>%
+  summarise_all(mean)
+
+res.cor = correlate(mean_data)
+
+res.cor %>%
+  focus(domain_gap) %>%
+  mutate(rowname = reorder(term, domain_gap)) %>%
+  ggplot(aes(x = rowname, y = domain_gap, fill = domain_gap)) +
+  geom_col() + coord_flip() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
+                       limits = c(-1, 1), guide = "colorbar") +
+  geom_text(aes(label = round(domain_gap, 2)), vjust = 0.5, hjust = 0, color = "black") +
+  theme_minimal()
+
+#chart.Correlation(mean_data, histogram=TRUE, pch=19)
+
+# Calculate correlations and p-values for var1 with other variables
+var_names <- names(mean_data)[-1]
+# Excluding domain gap
+var_names = subset(var_names, var_names!= 'domain_gap')
+cor_table <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+for (var_name in var_names) {
+  cor_result <- cor.test(mean_data$domain_gap, mean_data[[var_name]])
+  cor_table <- rbind(cor_table, data.frame(Variable = var_name, Correlation = round(cor_result$estimate, 2), P_Value = round(cor_result$p.value, 4)))
+}
+# order by correlation
+cor_table = cor_table[order(cor_table$Correlation),]
+cor_table
+```
+
+# 7.1 Conceptual Flowcharts
+As we pointed out earlier, it seems very likely that there are a number of common personality trait constructs that will be predictive of how well people translate their intentions into behavior (e.g. self-control, grit). In a sense intentions are filtered through personality space, where various aspects of personality interact with the initial intention to determine whether that particular intention is implemented (note that in this simplified version we are ignoring external intention-behavior gap causes).
+
+In turn we believe the gap to be a meaningful predictor of one's broad sense of well-being, as captured by constructs such as subjective happiness, self-esteem, and depression.
+
+```{r validation-flowchart, echo=FALSE, warning=FALSE}
+library(DiagrammeR)
+
+# IB Gap
+mermaid("
+graph LR
+    
+    A((Intentions))-->|minus| F((Behavior))
+    F -->|equals| G[IB Gap]    
+    G -->|influences| H((Well-Being))
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style G fill:#95ccba,stroke:#333,stroke-width:2px
+    style F fill:#fff0cb,stroke:#333,stroke-width:2px
+    style H fill:#ffdede,stroke:#333,stroke-width:2px
+
+")    
+
+# Intentions -> Behavior
+mermaid("
+graph LR
+    A((Intentions))-->B[Non-Cognitive/Personality]
+    A --> C[Cognitive]
+    B --> F((Behavior))
+    C --> F 
+    D[Context] -->F
+    subgraph Individual Differences
+    B
+    C
+    end
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style F fill:#fff0cb,stroke:#333,stroke-width:2px
+")  
+
+# Individual Differences: Non-cognitive
+mermaid("
+graph LR
+    A((Intentions))-->B(Conscientiousness)
+    A --> C(Ambition) 
+    A --> D(Self Control)
+    A --> E(Grit)
+    A --> F(...)
+    E --> G((Behavior))
+    C --> G
+    D --> G 
+    B --> G
+    F --> G
+
+    subgraph Non-Cognitive/Personality
+    B
+    C
+    D
+    E
+    F
+    end
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style G fill:#fff0cb,stroke:#333,stroke-width:2px
+")
+
+# Gap to Outcomes
+mermaid("
+graph LR
+
+    G[IB Gap] --> H(Flourishing)
+    G --> I(Happiness)
+    G --> J(Self-Esteem)
+    G --> K(Depression)
+    subgraph Well-Being Outcomes
+    H
+    I
+    J
+    K
+    end
+    style G fill:#95ccba,stroke:#333,stroke-width:2px
+
+")
+
+# Full Model w/ Feedback
+mermaid("
+graph LR
+    A((Intentions))-->B(Personality)
+    
+    B --> F((Behavior))
+    A --> G[IB Gap]
+    F --> G
+    G --> H((Well-Being))
+    H-.->|state level effects| B
+    B-.->|direct effect| H
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style G fill:#95ccba,stroke:#333,stroke-width:2px
+    style F fill:#fff0cb,stroke:#333,stroke-width:2px
+    style H fill:#ffdede,stroke:#333,stroke-width:2px
+    
+")
+
+```
+
+The plot above is a simplified version of how we see personality traits affecting behavior and therefore the Intention-Behavior gap. In turn this gap has affects on various measures of well-being. The dotted line labeled "direct effect" indicates the possibility that personality traits have an influence on the well-being set point (see Costa, P. T., & McCrae, R. R. (1980), DeNeve, K. M., & Cooper, H. (1998), Seligman, M. E. P., & Csikszentmihalyi, M. (2000), Steel, P., Schmidt, J., & Shultz, J. (2008)), while the dotted line labeled "state level effects" illustrates the fact that it probably doesn't make sense to think of these relationships as a directed acyclic graph given that there are likely feedback effects taking place.

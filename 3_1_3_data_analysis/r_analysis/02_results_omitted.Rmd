@@ -1,0 +1,496 @@
+---
+title: "02_results_omitted"
+author: "Daniel J Wilson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+# OLD CODE
+
+## 3.4 Gap vs. Importance
+```{r gap-v-importance, warning=FALSE, message=FALSE, echo=FALSE}
+library(sjPlot)
+
+
+options(repr.plot.width = 15, repr.plot.height = 10)
+
+### create df with name, count, importance, gap, and internal
+
+## Domain import avg.
+x = dplyr::select(df, contains('ib_domain_import'))
+x <- x %>% mutate_all(as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+
+data <- data.frame(domain = names(means), importance = means)
+# Remove "ib_domain_success_" from the "Name" column
+data$domain <- gsub("ib_domain_import_", "", data$domain)
+
+## Domain gap avg.
+x = dplyr::select(df, contains('ib_domain_success'))
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+means = 100 - means
+data$gap = means
+
+## Domain Internal avg.
+x = dplyr::select(df, contains('ib_domain_internal'))
+x <- x %>%
+  mutate_if(is.character, as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+data$internal = means
+
+## Domain External avg.
+x = dplyr::select(df, contains('ib_domain_external'))
+x <- x %>%
+  mutate_if(is.character, as.numeric)
+
+# Calculate the mean of columns omitting NA values
+means <- colMeans(x, na.rm = TRUE)
+# Calculate gap instead of success
+data$external = means
+
+## Domain counts
+x = dplyr::select(df, contains('ib_domain_success'))
+counts = colSums(!is.na(x))
+data$count = counts
+
+p <- ggplot(data, aes(importance, gap, label = domain))
+p + geom_point(aes(colour = internal, size = count)) + 
+geom_text(hjust = 0, nudge_x = 0.045, size=3) +
+labs(color = "Internally Motivated",
+     size = "Frequency"
+    ) +
+scale_colour_gradient(low = "yellow", high = "red", na.value = NA) +
+theme_sjplot() +
+theme(
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 8),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 8)
+  )
+
+gap_import_cor = cor.test(data$gap, data$importance)
+gap_internal_cor = cor.test(data$gap, data$internal)
+gap_external_cor = cor.test(data$gap, data$external)
+gap_frequency_cor = cor.test(data$gap, data$count)
+```
+
+### 6.1.1 Alternative Calculations of Chronbach's Alpha
+We wanted to check this calculation by applying two different imputation methods and validating them based on a known dataset.
+
+#### 6.1.1.1 Impute based on participant's own values
+
+In this methods we randomly sample (with replacement) from a participant's own values from their selected goal domains.
+
+The idea is that if this is a domain general measure then their own scores in un-selected life domains should be good predictors of what their performane would be IF they actually did have a goal in that domain.
+
+```{r chronbachs alpha impute-sample, echo=FALSE, warning=FALSE, message=FALSE}
+
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows with all na
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+# Iterate through each row and column combination
+for (i in 1:nrow(chron)) {
+  for (j in 1:ncol(chron)) {
+    # Check if cell is missing (NA)
+    if (is.na(chron[i, j])) {
+      # Impute value using sampled score from participant's own data
+      imputed_value <- sample(na.omit(as.numeric(chron[i,])), 1)
+      chron[i, j] <- imputed_value
+    }
+  }
+}
+
+c_alpha = psych::alpha(chron)
+
+# Test this method with known data (self control scale)
+
+```
+
+Using this library internal consistency as measured by Chronbach's Alpha (standardized) was `r round(c_alpha$total$std.alpha, 2)`.
+
+#### 6.1.1.2 Impute based on item average + Participant difference
+In the method we took each participant's average domain gap score and calculated how many standard deviations above or below the population it was. When the participant had a missing value for a given domain, we took the mean and standard deviation of the missing domain and then estimated the participant's score by using the following equation:
+
+$$m_{d} + SD_{p} * SD_{d}$$
+Where $m_{d}$ is the domain mean, $SD+{p}$ is the participant's average gap compared to the population average in terms of standard deviations of the distribution, and $SD_{d}$ is the standard deviation of the missing domain that is to be imputed for the given participant.
+
+
+This is similar to the previous methods but acknowledges that there may be systematic variation in the population level gap based on the domain. For example for this particular sample the average gap for alcohol and drug-related goals was only 30%, whereas the average gap for volunteering related goals was 57%.
+
+```{r chronbachs alpha impute-calculate, echo=FALSE, warning=FALSE, message=FALSE}
+
+chron = dplyr::select(df, contains('ib_domain_success'))
+
+# remove rows with all na
+chron <- chron[rowSums(is.na(chron)) != ncol(chron), ]
+
+# population gap mean and sd
+gap_mean = mean(rowMeans(chron, na.rm = T))
+gap_sd = sd(rowMeans(chron, na.rm = T))
+
+# Iterate through each row and column combination
+for (i in 1:nrow(chron)) {
+  for (j in 1:ncol(chron)) {
+    # Check if cell is missing (NA)
+    if (is.na(chron[i, j])) {
+      # Impute value using column (domain) mean and participant mean in terms of sds from population mean
+      col_mean = mean(chron[,j][!is.na(chron[,j])])
+      col_sd = sd(chron[,j][!is.na(chron[,j])])
+      sub_mean = mean(chron[i,][!is.na(chron[i,])])
+      sub_sds = (sub_mean - gap_mean)/gap_sd
+      imputed_value <- col_mean + (sub_sds * col_sd)
+      if (imputed_value<0){
+        imputed_value=0
+      }
+      if (imputed_value>100){
+        imputed_value=100
+      }
+      chron[i, j] <- imputed_value
+    }
+  }
+}
+
+c_alpha = psych::alpha(chron)
+
+# Test this method with known data (self control scale)
+
+```
+
+Using this library internal consistency as measured by Chronbach's Alpha (standardized) was `r round(c_alpha$total$std.alpha, 2)`.
+
+```{r imputation-test, echo=FALSE, warning=FALSE, message=FALSE}
+## Import Depression Anxiety Stress Scales-21 and Chernyshenko Conscientiousness Scale's
+# CCS: https://docs.google.com/document/d/1LK9yhlcr5Ux-GHB5-CubNai2Hf3ClJj-vn8WZhxa-9c/edit
+# DASS 21: https://docs.google.com/document/d/1E1LzJPFnKcuyetK2tGgdefJ5cU0s5zURTX679TCR5kc/edit#heading=h.l4lr03cu53fh
+# Brief Self-Control Scale (BSCS): https://docs.google.com/document/d/1OO1XE9ECmowyhXN28sFzT-uRSYrZ3gup9lC72NZJFbM/edit
+
+#------------#
+# Data Munge #
+#------------#
+
+# Import SONA data
+valid = read_csv('/Users/djw/Documents/pCloud_synced/Academics/Projects/2020_thesis/thesis_experiments/3_experiments/3_1_gap_measure/3_1_1_raw_data/qualtrics/VIB_Gap_Sona_reliabilityValidation.csv')
+valid = valid[valid$Progress=='100',]
+
+## Get CCS data
+ccs = select(valid, starts_with('ccs_'))
+ccs <- as.data.frame(sapply(ccs, as.numeric))
+ccs = ccs[complete.cases((ccs)), ]
+
+# first need to reverse score things...
+possible_endings = c('r_o', 'r_v', 'r_t', 'r_s', 'r_r', 'r_i')
+
+# Find columns that start with the specific string and end with any string in the list
+matching_cols <- names(select(ccs, ends_with(possible_endings)))
+
+# Reverse those columns (5 point likert)
+ccs[, matching_cols] <- 5 - ccs[, matching_cols] + 1
+
+## Get DASS21 (for some reason all NAs??)
+bscs = select(valid, starts_with('bscs_'))
+bscs <- as.data.frame(sapply(bscs, as.numeric))
+bscs = bscs[complete.cases((bscs)), ]
+
+# Find columns that end with 'r'
+matching_cols <- names(select(bscs, ends_with('_r')))
+
+# Reverse those columns (5 point likert)
+bscs[, matching_cols] <- 5 - bscs[, matching_cols] + 1
+
+#------#
+# Test #
+#------#
+
+## CCS
+c_alpha = psych::alpha(ccs, check.keys = FALSE)
+# note that ccs_29r_t was negatively correlated with scale
+# Item: "In my opinion, censorship slows down progress"
+# Also I manually reversed 49 as it seemed like there was an error in the actual file # https://www.dropbox.com/s/4yz4hm5qcapva98/CCS%20subscales%20and%20scoring%20key.pdf?dl=0
+
+# original alpha
+c_alpha$total$std.alpha
+
+# missing values alpha
+
+alpha_mcar = function(data, proportion_to_remove, reps){
+  
+  result_vector = c()
+  
+  for (i in 1:reps){
+
+    # Convert dataframe to a vector
+    data_vector <- unlist(data)
+    
+    # Calculate the number of values to remove
+    num_values_to_remove <- floor(length(data_vector) * proportion_to_remove)
+    
+    # Randomly select the indices of values to remove without replacement
+    indices_to_remove <- sample(length(data_vector), num_values_to_remove, replace = FALSE)
+    
+    # Set the selected values to NA
+    data_vector[indices_to_remove] <- NA
+    
+    # Convert the modified vector back to a dataframe
+    modified_data <- as.data.frame(matrix(data_vector, nrow = nrow(data), ncol = ncol(data), byrow = TRUE))
+    
+    # Assign column names to the modified dataframe
+    colnames(modified_data) <- colnames(data)
+    
+    #---------------#
+    # Impute values #
+    #---------------#
+    for (i in 1:nrow(chron)) {
+      for (j in 1:ncol(chron)) {
+        # Check if cell is missing (NA)
+        if (is.na(chron[i, j])) {
+          # Impute value using sampled score from participant's own data
+          imputed_value <- sample(na.omit(as.numeric(chron[i,])), 1)
+          chron[i, j] <- imputed_value
+        }
+      }
+    }
+        
+    ## Mice
+    # init = mice(dat, maxit=0)
+    # meth = init$method
+    # predM = init$predictorMatrix
+    # 
+    # meth[c("Cholesterol")]="norm" 
+    
+    # Calculate alpha
+    c_alpha = psych::alpha(modified_data)$total$std.alpha
+    result_vector <- c(result_vector, c_alpha)
+  }
+  return(result_vector)
+}
+
+reps = 0
+
+values = seq(from = 0.05, to = 0.5, by = 0.05 )
+
+out <- c()
+for (val in values){
+  print(val)
+  alphas = alpha_mcar(ccs, proportion_to_remove = val, reps = reps)
+  rbind(out, alphas)
+}
+
+psych::alpha(ccs)$total$std.alpha
+## BSCS
+c_alpha = psych::alpha(bscs)
+
+c_alpha$total$std.alpha
+```
+
+### 7.2.2 Concurrent: Averaging Start and End Measurements
+```{r concurrent-validity-table-averaged, echo=FALSE, message=FALSE, warning=FALSE}
+# predicting gap cols
+cor_cols_predict_gap = c('con_hex_score',
+             'food_fruitveg_score',
+             'food_fat_score',
+             'social_des_score',
+             'ambition_score',
+             'brief_self_control_score',
+             'bsss_overall',
+             'future_time_perspective_score',
+             'grit_scale_score',
+             'need_for_cognition_score',
+             'trait_hedonic_capacity_score',
+             
+             'domain_gap',
+             'ParticipantIdentifier'
+)
+
+mean_data <- df[cor_cols_predict_gap] %>%
+  group_by(ParticipantIdentifier) %>%
+  summarise_all(mean)
+
+res.cor = correlate(mean_data)
+
+res.cor %>%
+  focus(domain_gap) %>%
+  mutate(rowname = reorder(term, domain_gap)) %>%
+  ggplot(aes(x = rowname, y = domain_gap, fill = domain_gap)) +
+  geom_col() + coord_flip() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0,
+                       limits = c(-1, 1), guide = "colorbar") +
+  geom_text(aes(label = round(domain_gap, 2)), vjust = 0.5, hjust = 0, color = "black") +
+  theme_minimal()
+
+#chart.Correlation(mean_data, histogram=TRUE, pch=19)
+
+# Calculate correlations and p-values for var1 with other variables
+var_names <- names(mean_data)[-1]
+# Excluding domain gap
+var_names = subset(var_names, var_names!= 'domain_gap')
+cor_table <- data.frame(Variable = character(), Correlation = numeric(), P_Value = numeric(), stringsAsFactors = FALSE)
+
+for (var_name in var_names) {
+  cor_result <- cor.test(mean_data$domain_gap, mean_data[[var_name]])
+  cor_table <- rbind(cor_table, data.frame(Variable = var_name, Correlation = round(cor_result$estimate, 2), P_Value = round(cor_result$p.value, 4)))
+}
+# order by correlation
+cor_table = cor_table[order(cor_table$Correlation),]
+cor_table
+```
+
+# 7.1 Conceptual Flowcharts
+As we pointed out earlier, it seems very likely that there are a number of common personality trait constructs that will be predictive of how well people translate their intentions into behavior (e.g. self-control, grit). In a sense intentions are filtered through personality space, where various aspects of personality interact with the initial intention to determine whether that particular intention is implemented (note that in this simplified version we are ignoring external Intention-Behavior gap causes).
+
+In turn we believe the gap to be a meaningful predictor of one's broad sense of well-being, as captured by constructs such as subjective happiness, self-esteem, and depression.
+
+```{r validation-flowchart, echo=FALSE, warning=FALSE}
+library(DiagrammeR)
+
+# IB Gap
+mermaid("
+graph LR
+    
+    A((Intentions))-->|minus| F((Behavior))
+    F -->|equals| G[IB Gap]    
+    G -->|influences| H((Well-Being))
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style G fill:#95ccba,stroke:#333,stroke-width:2px
+    style F fill:#fff0cb,stroke:#333,stroke-width:2px
+    style H fill:#ffdede,stroke:#333,stroke-width:2px
+
+")    
+
+# Intentions -> Behavior
+mermaid("
+graph LR
+    A((Intentions))-->B[Non-Cognitive/Personality]
+    A --> C[Cognitive]
+    B --> F((Behavior))
+    C --> F 
+    D[Context] -->F
+    subgraph Individual Differences
+    B
+    C
+    end
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style F fill:#fff0cb,stroke:#333,stroke-width:2px
+")  
+
+# Individual Differences: Non-cognitive
+mermaid("
+graph LR
+    A((Intentions))-->B(Conscientiousness)
+    A --> C(Ambition) 
+    A --> D(Self Control)
+    A --> E(Grit)
+    A --> F(...)
+    E --> G((Behavior))
+    C --> G
+    D --> G 
+    B --> G
+    F --> G
+
+    subgraph Non-Cognitive/Personality
+    B
+    C
+    D
+    E
+    F
+    end
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style G fill:#fff0cb,stroke:#333,stroke-width:2px
+")
+
+# Gap to Outcomes
+mermaid("
+graph LR
+
+    G[IB Gap] --> H(Flourishing)
+    G --> I(Happiness)
+    G --> J(Self-Esteem)
+    G --> K(Depression)
+    subgraph Well-Being Outcomes
+    H
+    I
+    J
+    K
+    end
+    style G fill:#95ccba,stroke:#333,stroke-width:2px
+
+")
+
+# Full Model w/ Feedback
+mermaid("
+graph LR
+    A((Intentions))-->B(Personality)
+    
+    B --> F((Behavior))
+    A --> G[IB Gap]
+    F --> G
+    G --> H((Well-Being))
+    H-.->|state level effects| B
+    B-.->|direct effect| H
+    style A fill:#a7ba42,stroke:#333,stroke-width:2px
+    style G fill:#95ccba,stroke:#333,stroke-width:2px
+    style F fill:#fff0cb,stroke:#333,stroke-width:2px
+    style H fill:#ffdede,stroke:#333,stroke-width:2px
+    
+")
+
+```
+
+The plot above is a simplified version of how we see personality traits affecting behavior and therefore the Intention-Behavior gap. In turn this gap has affects on various measures of well-being. The dotted line labeled "direct effect" indicates the possibility that personality traits have an influence on the well-being set point (see Costa, P. T., & McCrae, R. R. (1980), DeNeve, K. M., & Cooper, H. (1998), Seligman, M. E. P., & Csikszentmihalyi, M. (2000), Steel, P., Schmidt, J., & Shultz, J. (2008)), while the dotted line labeled "state level effects" illustrates the fact that it probably doesn't make sense to think of these relationships as a directed acyclic graph given that there are likely feedback effects taking place.
+
+
+
+
+
+What about number of goals that are of "top" (7) importance?
+```{r goalImport7-gap-correlation, warning=FALSE, message=FALSE, echo=FALSE}
+
+x = dplyr::select(df, contains('ib_domain_import'))
+
+# Convert to numeric
+x = as.data.frame(lapply(x, as.numeric))
+
+# Calculate the mean of non-NA domain goal values for each subject
+import7 <- data.frame(import7 = rowSums(x == 7, na.rm = TRUE))
+# Add gap
+import7$gap = df$domain_gap
+# Remove rows with missing data
+import7 = import7[!is.na(import7$gap),]
+
+# Calculate correlation coefficient and p-value
+cor_result <- cor.test(import7$import7, import7$gap)
+
+#plot
+ggplot(import7, aes(x = import7, y = gap)) +
+  geom_point(size = 3, color = "skyblue3") +
+  geom_smooth(method = "lm", se = TRUE, color = "red3", size = 1) +
+  geom_label(aes(x = max(import7), y = max(gap), label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))),
+            hjust = 1, vjust = 1, color = "black") +
+  labs(x = '# top importance domains', y = 'IB gap') +
+  theme_minimal()
+
+# Remove rows with zero import7
+import7_noZero = import7[import7$import7!=0,]
+
+# Calculate correlation coefficient and p-value
+cor_result <- cor.test(import7_noZero$import7, import7_noZero$gap)
+
+ggplot(import7_noZero, aes(x = import7, y = gap)) +
+  geom_point(size = 3, color = "skyblue3") +
+  geom_smooth(method = "lm", se = TRUE, color = "red3", size = 1) +
+  geom_label(aes(x = max(import7), y = max(gap), label = paste("r =", round(cor_result$estimate, 2), ", p =", format(round(cor_result$p.value, 2), scientific = FALSE))),
+            hjust = 1, vjust = 1, color = "black") +
+  labs(x = '# top importance domains', y = 'IB gap', title = "Zeros removed") +
+  theme_minimal()
+
+```

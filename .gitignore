@@ -1,0 +1,50 @@
+# Don't track content of these folders #
+########################################
+*/1_project_management/*
+*/2_ethics_governance/*
+*/*raw_data/*
+*/daily_data/*
+*/PaymentTestData/*
+
+3_1_1_raw_data/
+3_1_2_processed_data/
+3_1_3_data_analysis/run1_dataExplore.ipynb
+daily_data/
+PaymentTestData/
+
+expfactory-key
+expfactory-key.pub
+
+# Ignore all logs #
+###################
+*.log
+
+# Ignore pickled data
+#####################
+*.pkl
+
+# credentials #
+###############
+*.env
+*secret*
+
+# Ignore checkpoints #
+######################
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# R Stuff #
+###########
+*.Rproj.user
+*.Rhistory
+*.DS_Store
+.Rproj.user
+*.RData
+*.Rhistory
+*.Rproj.user
+
+# Ignore large files #
+######################
+*.zip
+*.pkl
+*.gz
