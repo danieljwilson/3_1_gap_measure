@@ -26,6 +26,7 @@ expfactory-key.pub
 # credentials #
 ###############
 *.env
+*.venv
 *secret*
 
 # Ignore checkpoints #
@@ -42,6 +43,7 @@ expfactory-key.pub
 *.RData
 *.Rhistory
 *.Rproj.user
+*.trackdown/
 
 # Ignore large files #
 ######################

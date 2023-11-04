@@ -1369,6 +1369,7 @@ Given that we collected 12 weeks of daily measures of the Intention-Behavior gap
 
 In the table below (Table \@ref(tab:measure-dailyGap-table)) we looked at both the onboarding and offboarding measurements separately as well as a combination of the two measurements (averaged together). We also looked at the daily gap as calculated based on a single measure ("Over the past 24 hours the level of my intention gap was:", on a scale of 0-100%), as well as a composite measure which included the gaps on two specific goals the participant had set for themselves. We used a simple weighting scheme of 75%/25% for the overall measure and the two specific goal measures. In all cases we found that this composite daily gap measure was more highly correlated with the Intention-Behavior Gap measure, and also found that combining both the onboarding and offboarding measurements of the instrument provided the highest correlation.
 
+
 ```{r measure-dailyGap-table, echo=FALSE, message=FALSE}
 # create table
 tab_01 = data.frame(
